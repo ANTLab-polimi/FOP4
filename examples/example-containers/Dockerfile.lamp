@@ -1,0 +1,12 @@
+FROM fauria/lamp
+RUN apt-get update && apt-get install -y \
+    net-tools \
+    iputils-ping \
+    iproute \
+    ethtool \
+    wget \
+    tcpdump
+COPY ./lamp.sh ./
+RUN chmod +x ./lamp.sh
+
+ENTRYPOINT ./lamp.sh

@@ -1,0 +1,14 @@
+FROM haproxy:1.7
+RUN apt-get update && apt-get install -y \
+    net-tools \
+    iputils-ping \
+    iproute \
+    htop \
+    ethtool \
+    wget \
+    tcpdump
+COPY haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
+COPY haproxy.sh ./
+RUN chmod +x ./haproxy.sh
+
+ENTRYPOINT ./haproxy.sh
