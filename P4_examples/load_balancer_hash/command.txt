@@ -1,0 +1,25 @@
+table_add ecmp_nhop set_nhop 0x0001&&&0x0001 => 00:00:00:00:00:A0 192.168.1.200 2 200
+table_add ecmp_nhop set_nhop 0x0000&&&0x0001 => 00:00:00:00:00:A1 192.168.1.201 3 201
+
+table_add ecmp_group set_ecmp_select 192.168.1.100 => 10 100
+
+table_add ecmp_other_direction substitute_src 192.168.1.200 => 00:00:00:00:00:01 192.168.1.100 1
+table_add ecmp_other_direction substitute_src 192.168.1.201 => 00:00:00:00:00:01 192.168.1.100 1
+
+table_add t_l2_fwd set_out_port 0x0&&&0x0 00:00:00:00:00:A0&&&0xFFFFFFFFFFFF 00:00:00:00:00:04&&&0xFFFFFFFFFFFF 0x0&&&0x0 => 2 1
+table_add t_l2_fwd set_out_port 0x0&&&0x0 00:00:00:00:00:A0&&&0xFFFFFFFFFFFF 00:00:00:00:00:05&&&0xFFFFFFFFFFFF 0x0&&&0x0 => 2 1
+
+table_add t_l2_fwd set_out_port 0x0&&&0x0 00:00:00:00:00:A1&&&0xFFFFFFFFFFFF 00:00:00:00:00:04&&&0xFFFFFFFFFFFF 0x0&&&0x0 => 3 1
+table_add t_l2_fwd set_out_port 0x0&&&0x0 00:00:00:00:00:A1&&&0xFFFFFFFFFFFF 00:00:00:00:00:05&&&0xFFFFFFFFFFFF 0x0&&&0x0 => 3 1
+
+table_add t_l2_fwd set_out_port 0x0&&&0x0 00:00:00:00:00:04&&&0xFFFFFFFFFFFF 00:00:00:00:00:A1&&&0xFFFFFFFFFFFF 0x0&&&0x0 => 4 1
+table_add t_l2_fwd set_out_port 0x0&&&0x0 00:00:00:00:00:05&&&0xFFFFFFFFFFFF 00:00:00:00:00:A1&&&0xFFFFFFFFFFFF 0x0&&&0x0 => 5 1
+
+table_add t_l2_fwd set_out_port 0x0&&&0x0 00:00:00:00:00:04&&&0xFFFFFFFFFFFF 00:00:00:00:00:A0&&&0xFFFFFFFFFFFF 0x0&&&0x0 => 4 1
+table_add t_l2_fwd set_out_port 0x0&&&0x0 00:00:00:00:00:05&&&0xFFFFFFFFFFFF 00:00:00:00:00:A0&&&0xFFFFFFFFFFFF 0x0&&&0x0 => 5 1
+
+table_add t_l2_fwd set_out_port 0x0&&&0x0 00:00:00:00:00:04&&&0xFFFFFFFFFFFF 00:00:00:00:00:01&&&0xFFFFFFFFFFFF 0x0&&&0x0 => 4 1
+table_add t_l2_fwd set_out_port 0x0&&&0x0 00:00:00:00:00:05&&&0xFFFFFFFFFFFF 00:00:00:00:00:01&&&0xFFFFFFFFFFFF 0x0&&&0x0 => 5 1
+
+table_add t_l2_fwd set_out_port 0x0&&&0x0 00:00:00:00:00:01&&&0xFFFFFFFFFFFF 00:00:00:00:00:04&&&0xFFFFFFFFFFFF 0x0&&&0x0 => 1 1
+table_add t_l2_fwd set_out_port 0x0&&&0x0 00:00:00:00:00:01&&&0xFFFFFFFFFFFF 00:00:00:00:00:05&&&0xFFFFFFFFFFFF 0x0&&&0x0 => 1 1
