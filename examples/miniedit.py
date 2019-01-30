@@ -59,6 +59,7 @@ from mininet.cli import CLI
 from mininet.moduledeps import moduleDeps
 from mininet.topo import SingleSwitchTopo, LinearTopo, SingleSwitchReversedTopo
 from mininet.topolib import TreeTopo
+from mininet.bmv2 import ONOSBmv2Switch, P4DockerHost, P4Host
 
 print 'MiniEdit running against Containernet ' + VERSION
 MININET_VERSION = re.sub(r'[^\d\.]', '', VERSION)
@@ -506,6 +507,18 @@ class HostDialog(CustomDialog):
         if 'stopCommand' in self.prefValues:
             self.stopEntry.insert(0, str(self.prefValues['stopCommand']))
 
+        Label(self.propFrame, text="P4 Compatible:").grid(row=7, sticky=E)
+        self.p4compatible = IntVar()
+        self.p4compatibleCheck = Checkbutton(self.propFrame, variable=self.p4compatible)
+        self.p4compatibleCheck.grid(row=7, column=1, sticky=W)
+        if 'p4compatible' in self.prefValues:
+            if self.prefValues['p4compatible'] == True:
+                self.p4compatibleCheck.select()
+            else:
+                self.p4compatibleCheck.deselect()
+        else:
+            self.p4compatibleCheck.deselect()
+
         ### TAB 2
         # External Interfaces
         self.externalInterfaces = 0
@@ -605,7 +618,9 @@ class HostDialog(CustomDialog):
                    'stopCommand':self.stopEntry.get(),
                    'privateDirectory':privateDirectories,
                    'externalInterfaces':externalInterfaces,
-                   'vlanInterfaces':vlanInterfaces}
+                   'vlanInterfaces':vlanInterfaces,
+                   'p4compatible': True if self.p4compatible.get() == 1 else False
+                   }
         self.result = results
 
 
@@ -656,6 +671,18 @@ class DockerDialog(CustomDialog):
         if 'startCommand' in self.prefValues:
             self.startEntry.insert(0, str(self.prefValues['startCommand']))
 
+        Label(self.propFrame, text="P4 Compatible:").grid(row=4, sticky=E)
+        self.p4compatible = IntVar()
+        self.p4compatibleCheck = Checkbutton(self.propFrame, variable=self.p4compatible)
+        self.p4compatibleCheck.grid(row=4, column=1, sticky=W)
+        if 'p4compatible' in self.prefValues:
+            if self.prefValues['p4compatible'] == True:
+                self.p4compatibleCheck.select()
+            else:
+                self.p4compatibleCheck.deselect()
+        else:
+            self.p4compatibleCheck.deselect()
+
         # Field for default route
         #Label(self.propFrame, text="Default Route:").grid(row=2, sticky=E)
         #self.routeEntry = Entry(self.propFrame)
@@ -696,9 +723,127 @@ class DockerDialog(CustomDialog):
                    'ip':self.ipEntry.get(),
                    #'defaultRoute':self.routeEntry.get(),
                    'startCommand':self.startEntry.get(),
-                   'multiInterfaces':multiInterfaces}
+                   'multiInterfaces':multiInterfaces,
+                   'p4compatible': True if self.p4compatible.get() == 1 else False
+                   }
         self.result = results
 
+class P4SwitchDialog(CustomDialog):
+
+    def __init__(self, master, title, prefDefaults):
+
+        self.prefValues = prefDefaults
+        self.result = None
+        CustomDialog.__init__(self, master, title)
+
+    def body(self, master):
+
+        self.rootFrame = master
+        n = Notebook(self.rootFrame)
+        self.propFrame = Frame(n)
+        self.advPropFrame = Frame(n)
+        n.add(self.propFrame, text='Properties')
+        n.add(self.advPropFrame, text='Advanced Properties')
+        n.pack()
+        propRowCount = 0
+
+        # Field for Hostname
+        Label(self.propFrame, text="Hostname:").grid(row=propRowCount, sticky=E)
+        self.hostnameEntry = Entry(self.propFrame)
+        self.hostnameEntry.grid(row=propRowCount, column=1)
+        self.hostnameEntry.insert(0, self.prefValues['hostname'])
+        propRowCount+=1
+
+        # Field for DPID
+        Label(self.propFrame, text="DPID:").grid(row=propRowCount, sticky=E)
+        self.dpidEntry = Entry(self.propFrame)
+        self.dpidEntry.grid(row=propRowCount, column=1)
+        if 'dpid' in self.prefValues:
+            self.dpidEntry.insert(0, self.prefValues['dpid'])
+        propRowCount+=1
+
+        # Field for Switch IP
+        Label(self.propFrame, text="IP Address:").grid(row=propRowCount, sticky=E)
+        self.ipEntry = Entry(self.propFrame)
+        self.ipEntry.grid(row=propRowCount, column=1)
+        if 'switchIP' in self.prefValues:
+            self.ipEntry.insert(0, self.prefValues['switchIP'])
+        propRowCount+=1
+
+        # Field for switch JSON file
+        Label(self.propFrame, text="JSON configuration file:").grid(row=propRowCount, sticky=E)
+        self.jsonEntry = Entry(self.propFrame)
+        self.jsonEntry.grid(row=propRowCount, column=1)
+        if "json" in self.prefValues:
+            self.jsonEntry.insert(0, self.prefValues['json'])
+        propRowCount+=1
+
+        # Field for switch ONOS pipeconf
+        Label(self.propFrame, text="ONOS Pipeconf:").grid(row=propRowCount, sticky=E)
+        self.pipeconfEntry = Entry(self.propFrame)
+        self.pipeconfEntry.grid(row=propRowCount, column=1)
+        if "pipeconf" in self.prefValues:
+            self.pipeconfEntry.insert(0, self.prefValues['pipeconf'])
+        propRowCount+=1
+
+
+        # ------------ ADVANCED PROPERTIES ----------------------------
+        advPropRowCount = 0
+        # Field for switch activation of packet dump
+        Label(self.advPropFrame, text="Packet dump:").grid(row=advPropRowCount, sticky=E)
+        self.pktdump = IntVar()
+        self.pktdumpButton = Checkbutton(self.advPropFrame, variable=self.pktdump)
+        self.pktdumpButton.grid(row=advPropRowCount, column=1, sticky=W)
+        if 'pktdump' in self.prefValues:
+            if self.prefValues['pktdump'] == True:
+                self.pktdumpButton.select()
+            else:
+                self.pktdumpButton.deselect()
+        else:
+            self.pktdumpButton.deselect()
+        advPropRowCount+=1
+
+        # Field for switch Log Level
+        Label(self.advPropFrame, text="Log Level:").grid(row=advPropRowCount, sticky=E)
+        self.loglevelEntry = Entry(self.advPropFrame)
+        self.loglevelEntry.grid(row=advPropRowCount, column=1)
+        if "loglevel" in self.prefValues:
+            self.loglevelEntry.insert(0, self.prefValues['loglevel'])
+        advPropRowCount+=1
+
+    def defaultDpid( self, name):
+        "Derive dpid from P4Switch name, p1 -> 1"
+        assert self  # satisfy pylint and allow contextual override
+        try:
+            dpid = int( re.findall( r'\d+', name )[ 0 ] )
+            dpid = hex( dpid )[ 2: ]
+            return dpid
+        except IndexError:
+            return None
+            #raise Exception( 'Unable to derive default datapath ID - '
+            #                 'please either specify a dpid or use a '
+            #                 'canonical switch name such as s23.' )
+
+    def apply(self):
+        dpid = self.dpidEntry.get()
+        if (self.defaultDpid(self.hostnameEntry.get()) is None
+           and len(dpid) == 0):
+            showerror(title="Error",
+                          message= 'Unable to derive default datapath ID - '
+                             'please either specify a DPID or use a '
+                             'canonical switch name such as p23.' )
+
+
+        results = {'hostname':self.hostnameEntry.get(),
+                   'dpid':dpid,
+                   'switchIP':self.ipEntry.get(),
+                   'loglevel':self.loglevelEntry.get(),
+                   'json':self.jsonEntry.get(),
+                   'pipeconf':self.pipeconfEntry.get(),
+                   'pktdump': True if self.pktdump.get()==1 else False,
+                   'switchType': 'P4Switch',
+                   }
+        self.result = results
 
 class SwitchDialog(CustomDialog):
 
@@ -1231,6 +1376,7 @@ class MiniEdit( Frame ):
         self.tools = ( 'Select',
                        'Host',
                        'Docker',
+                       'P4Switch',
                        'Switch',
                        'LegacySwitch',
                        'LegacyRouter',
@@ -1251,7 +1397,7 @@ class MiniEdit( Frame ):
 
         # Initialize node data
         self.nodeBindings = self.createNodeBindings()
-        self.nodePrefixes = { 'LegacyRouter': 'r', 'LegacySwitch': 's', 'Switch': 's', 'Host': 'h' , 'Docker': 'd' , 'Controller': 'c'}
+        self.nodePrefixes = { 'LegacyRouter': 'r', 'LegacySwitch': 's', 'Switch': 's', 'P4Switch' : 'p', 'Host': 'h' , 'Docker': 'd' , 'Controller': 'c'}
         self.widgetToItem = {}
         self.itemToWidget = {}
 
@@ -1302,6 +1448,16 @@ class MiniEdit( Frame ):
         self.switchRunPopup.add_separator()
         self.switchRunPopup.add_command(label='List bridge details', font=self.font, command=self.listBridge )
 
+        self.p4SwitchPopup = Menu(self.top, tearoff=0)
+        self.p4SwitchPopup.add_command(label='P4Switch Options', font=self.font)
+        self.p4SwitchPopup.add_separator()
+        self.p4SwitchPopup.add_command(label='Properties', font=self.font, command=self.p4SwitchDetails )
+
+        self.p4SwitchRunPopup = Menu(self.top, tearoff=0)
+        self.p4SwitchRunPopup.add_command(label='P4Switch Options', font=self.font)
+        self.p4SwitchRunPopup.add_separator()
+        self.p4SwitchRunPopup.add_command(label='Terminal', font=self.font, command=self.p4ThriftCLI )
+
         self.linkPopup = Menu(self.top, tearoff=0)
         self.linkPopup.add_command(label='Link Options', font=self.font)
         self.linkPopup.add_separator()
@@ -1327,6 +1483,7 @@ class MiniEdit( Frame ):
         self.links = {}
         self.hostOpts = {}
         self.switchOpts = {}
+        #self.p4switchOpts = {}
         self.hostCount = 0
         self.dockerCount = 0
         self.switchCount = 0
@@ -1497,7 +1654,7 @@ class MiniEdit( Frame ):
 
     def addNode( self, node, nodeNum, x, y, name=None):
         "Add a new node to our canvas."
-        if 'Switch' == node or 'LegacySwitch' == node or 'LegacyRouter' == node:
+        if 'Switch' == node or 'LegacySwitch' == node or 'LegacyRouter' == node or "P4Switch" == node:
             self.switchCount += 1
         if 'Host' == node:
             self.hostCount += 1
@@ -1641,6 +1798,10 @@ class MiniEdit( Frame ):
                 self.addNode('LegacySwitch', nodeNum, float(x), float(y), name=hostname)
                 icon = self.findWidgetByName(hostname)
                 icon.bind('<Button-3>', self.do_legacySwitchPopup )
+            elif switch['opts']['switchType'] == "P4Switch":
+                self.addNode('P4Switch', nodeNum, float(x), float(y), name=hostname)
+                icon = self.findWidgetByName(hostname)
+                icon.bind('<Button-3>', self.do_p4switchPopup )
             else:
                 self.addNode('Switch', nodeNum, float(x), float(y), name=hostname)
                 icon = self.findWidgetByName(hostname)
@@ -1718,6 +1879,7 @@ class MiniEdit( Frame ):
         self.hostOpts = {}
         self.dockerOpts = {}
         self.switchOpts = {}
+        #self.p4switchOpts = {}
         self.controllers = {}
         self.appPrefs["ipBase"]= self.defaultIpBase
 
@@ -1742,7 +1904,14 @@ class MiniEdit( Frame ):
                 name = widget[ 'text' ]
                 tags = self.canvas.gettags( self.widgetToItem[ widget ] )
                 x1, y1 = self.canvas.coords( self.widgetToItem[ widget ] )
-                if 'Switch' in tags or 'LegacySwitch' in tags or 'LegacyRouter' in tags:
+                if 'Switch' in tags or 'LegacySwitch' in tags or 'LegacyRouter' in tags or 'P4Switch' in tags:
+                    nodeNum = self.switchOpts[name]['nodeNum']
+                    nodeToSave = {'number':str(nodeNum),
+                                  'x':str(x1),
+                                  'y':str(y1),
+                                  'opts':self.switchOpts[name] }
+                    switchesToSave.append(nodeToSave)
+                elif "P4Switch" in tags:
                     nodeNum = self.switchOpts[name]['nodeNum']
                     nodeToSave = {'number':str(nodeNum),
                                   'x':str(x1),
@@ -1796,6 +1965,7 @@ class MiniEdit( Frame ):
                 f.close()
 
     def exportScript( self ):
+        #TODO: Support Docker containers and P4Switches
         "Export command."
         myFormats = [
             ('Mininet Custom Topology','*.py'),
@@ -1817,6 +1987,7 @@ class MiniEdit( Frame ):
                 f.write("from mininet.node import IVSSwitch\n")
             f.write("from mininet.cli import CLI\n")
             f.write("from mininet.log import setLogLevel, info\n")
+            f.write("from mininet.link import TCLink, Intf\n")
             f.write("from mininet.link import TCLink, Intf\n")
             f.write("from subprocess import call\n")
 
@@ -2236,6 +2407,18 @@ class MiniEdit( Frame ):
             self.switchOpts[name]['hostname']=name
             self.switchOpts[name]['switchType']='default'
             self.switchOpts[name]['controllers']=[]
+        if 'P4Switch' == node:
+            self.switchCount += 1
+            name = self.nodePrefixes[ node ] + str( self.switchCount )
+            self.switchOpts[name] = {}
+            self.switchOpts[name]['nodeNum']=self.switchCount
+            self.switchOpts[name]['hostname']=name
+            self.switchOpts[name]['switchType']='p4switch'
+            self.switchOpts[name]['controllers']=[]
+            self.switchOpts[name]['json'] = ''
+            self.switchOpts[name]['pipeconf'] = ''
+            self.switchOpts[name]['pktdump'] = False
+            self.switchOpts[name]['loglevel'] = 'warn'
         if 'LegacyRouter' == node:
             self.switchCount += 1
             name = self.nodePrefixes[ node ] + str( self.switchCount )
@@ -2258,6 +2441,7 @@ class MiniEdit( Frame ):
             self.hostOpts[name]['nodeNum']=self.hostCount
             self.hostOpts[name]['hostname']=name
             self.hostOpts[name]['nodeType']=node
+            self.hostOpts[name]['p4compatible']=False
         if 'Docker' == node:
             self.dockerCount += 1
             name = self.nodePrefixes[ node ] + str( self.dockerCount )
@@ -2267,6 +2451,7 @@ class MiniEdit( Frame ):
             self.hostOpts[name]['dimage']='ubuntu:trusty'
             self.hostOpts[name]['startCommand']='/bin/bash'
             self.hostOpts[name]['nodeType']=node
+            self.hostOpts[name]['p4compatible']=False
         if 'Controller' == node:
             name = self.nodePrefixes[ node ] + str( self.controllerCount )
             ctrlr = { 'controllerType': 'ref',
@@ -2287,6 +2472,8 @@ class MiniEdit( Frame ):
         icon.links = {}
         if 'Switch' == node:
             icon.bind('<Button-3>', self.do_switchPopup )
+        if 'P4Switch' == node:
+            icon.bind('<Button-3>', self.do_p4switchPopup )
         if 'LegacyRouter' == node:
             icon.bind('<Button-3>', self.do_legacyRouterPopup )
         if 'LegacySwitch' == node:
@@ -2321,6 +2508,10 @@ class MiniEdit( Frame ):
     def clickSwitch( self, event ):
         "Add a new switch to our canvas."
         self.newNode( 'Switch', event )
+
+    def clickP4Switch( self, event):
+        "Add new P4Switch to out canvas."
+        self.newNode( 'P4Switch', event )
 
     def dragNetLink( self, event ):
         "Drag a link's endpoint to another node."
@@ -2533,7 +2724,6 @@ class MiniEdit( Frame ):
             else:
                 controllerName = dest[ 'text' ]
                 switchName = source[ 'text' ]
-
             self.switchOpts[switchName]['controllers'].append(controllerName)
 
         # We're done
@@ -2629,6 +2819,7 @@ class MiniEdit( Frame ):
                 newHostOpts['vlanInterfaces'] = hostBox.result['vlanInterfaces']
             if len(hostBox.result['privateDirectory']) > 0:
                 newHostOpts['privateDirectory'] = hostBox.result['privateDirectory']
+            newHostOpts['p4compatible'] = hostBox.result['p4compatible']
             self.hostOpts[name] = newHostOpts
             print 'New host details for ' + name + ' = ' + str(newHostOpts)
 
@@ -2664,8 +2855,42 @@ class MiniEdit( Frame ):
             # TODO apply the IPs to the right interfaces
             if len(dockerBox.result['multiInterfaces']) > 0:
                 newDockerOpts['multiInterfaces'] = dockerBox.result['multiInterfaces']
+            newDockerOpts['p4compatible'] = dockerBox.result['p4compatible']
             self.hostOpts[name] = newDockerOpts
             print 'New host details for ' + name + ' = ' + str(self.hostOpts[name])
+
+    def p4SwitchDetails(self, _ignore=None):
+        if ( self.selection is None or
+             self.net is not None or
+             self.selection not in self.itemToWidget ):
+            return
+        widget = self.itemToWidget[ self.selection ]
+        name = widget[ 'text' ]
+        tags = self.canvas.gettags( self.selection )
+        if 'P4Switch' not in tags:
+            return
+
+        prefDefaults = self.switchOpts[name]
+        p4switchBox = P4SwitchDialog(self, title='P4Switch Details', prefDefaults=prefDefaults)
+        self.master.wait_window(p4switchBox.top)
+        if p4switchBox.result:
+            newP4SwitchOpts = {'nodeNum':self.switchOpts[name]['nodeNum']}
+            newP4SwitchOpts['switchType'] = 'P4Switch'
+            newP4SwitchOpts['controllers'] = self.switchOpts[name]['controllers']
+            if len(p4switchBox.result['dpid']) > 0:
+                newP4SwitchOpts['dpid'] = p4switchBox.result['dpid']
+            if len(p4switchBox.result['hostname']) > 0:
+                newP4SwitchOpts['hostname'] = p4switchBox.result['hostname']
+                name = p4switchBox.result['hostname']
+                widget[ 'text' ] = name
+            if len(p4switchBox.result['json']) > 0:
+                newP4SwitchOpts['json'] = p4switchBox.result['json']
+            newP4SwitchOpts['pktdump'] = p4switchBox.result['pktdump']
+            if len(p4switchBox.result['pipeconf']) > 0:
+                newP4SwitchOpts['pipeconf'] = p4switchBox.result['pipeconf']
+            newP4SwitchOpts['switchIP'] = p4switchBox.result['switchIP']
+            self.switchOpts[name] = newP4SwitchOpts
+            print 'New P4Switch details for ' + name + ' = ' + str(newP4SwitchOpts)
 
     def switchDetails( self, _ignore=None ):
         if ( self.selection is None or
@@ -2677,7 +2902,7 @@ class MiniEdit( Frame ):
         tags = self.canvas.gettags( self.selection )
         if 'Switch' not in tags:
             return
-
+        print name
         prefDefaults = self.switchOpts[name]
         switchBox = SwitchDialog(self, title='Switch Details', prefDefaults=prefDefaults)
         self.master.wait_window(switchBox.top)
@@ -2784,6 +3009,19 @@ class MiniEdit( Frame ):
                         if oldName in switch['controllers']:
                             switch['controllers'].remove(oldName)
                             switch['controllers'].append(name)
+
+    def p4ThriftCLI(self, _ignore=None):
+        if ( self.selection is None or
+             self.net is None or
+             self.selection not in self.itemToWidget ):
+            return
+        name = self.itemToWidget[ self.selection ][ 'text' ]
+        tags = self.canvas.gettags( self.selection )
+
+        if name not in self.net.nameToNode:
+            return
+        if 'P4Switch' in tags:
+            call(["xterm -T '"+ name + " Thrift P4 CLI' -e 'simple_switch_CLI --thrift-port $(cat /tmp/bmv2-"+name+"-thrift-port)'"], shell=True)
 
 
     def listBridge( self, _ignore=None ):
@@ -2941,7 +3179,20 @@ class MiniEdit( Frame ):
                     for extInterface in opts['externalInterfaces']:
                         if self.checkIntf(extInterface):
                             Intf( extInterface, node=newSwitch )
-
+            elif "P4Switch" in tags:
+                opts = self.switchOpts[name]
+                switchParms={}
+                if 'loglevel' in opts:
+                    switchParms['loglevel'] = opts['loglevel']
+                if 'dpid' in opts:
+                    switchParms['dpid'] = opts['dpid']
+                if 'json' in opts:
+                    switchParms['json'] = opts['json']
+                if 'pktdump' in opts:
+                    switchParms['pktdump'] = opts['pktdump']
+                if 'pipeconf' in opts:
+                    switchParms['pipeconf'] = opts['pipeconf']
+                newSwitch = net.addSwitch( name, cls=ONOSBmv2Switch, **switchParms)
             elif 'LegacySwitch' in tags:
                 newSwitch = net.addSwitch( name , cls=LegacySwitch)
             elif 'LegacyRouter' in tags:
@@ -2962,17 +3213,21 @@ class MiniEdit( Frame ):
 
                 # Create the correct host class
                 if 'cores' in opts or 'cpu' in opts:
+                    #TODO: support CPULimitedHost with P4switches
                     if 'privateDirectory' in opts:
                         hostCls = partial( CPULimitedHost,
                                            privateDirs=opts['privateDirectory'] )
                     else:
                         hostCls=CPULimitedHost
                 else:
+                    class_type = Host
+                    if opts['p4compatible']:
+                        class_type = P4Host
                     if 'privateDirectory' in opts:
-                        hostCls = partial( Host,
+                        hostCls = partial( class_type,
                                            privateDirs=opts['privateDirectory'] )
                     else:
-                        hostCls=Host
+                        hostCls=class_type
                 print hostCls
                 newHost = net.addHost( name,
                                        cls=hostCls,
@@ -3014,7 +3269,11 @@ class MiniEdit( Frame ):
                 if 'startCommand' in opts and len(opts['startCommand']) > 0:
                     startCommand = opts['startCommand']
                 print("Starting Docker with opts={}".format(opts))
+                class_type = Docker
+                if opts['p4compatible']:
+                    class_type = P4DockerHost
                 newHost = net.addDocker( name,
+                                         cls=class_type,
                                          ip=ip,
                                          dimage=dimage,
                                          dcmd=startCommand
@@ -3269,6 +3528,13 @@ class MiniEdit( Frame ):
                 if 'LegacySwitch' in tags:
                     self.net.get(name).start( [] )
                     info( name + ' ')
+                if "P4Switch" in tags:
+                    opts = self.switchOpts[name]
+                    switchControllers = []
+                    for ctrl in opts['controllers']:
+                        switchControllers.append(self.net.get(ctrl))
+                    info( name + ' ')
+                    self.net.get(name).start( switchControllers )
             info('\n')
 
             self.postStartSetup()
@@ -3383,6 +3649,21 @@ class MiniEdit( Frame ):
             finally:
                 # make sure to release the grab (Tk 8.0a1 only)
                 self.switchRunPopup.grab_release()
+
+    def do_p4switchPopup(self, event):
+        # display the popup menu
+        if self.net is None:
+            try:
+                self.p4SwitchPopup.tk_popup(event.x_root, event.y_root, 0)
+            finally:
+                # make sure to release the grab (Tk 8.0a1 only)
+                self.p4SwitchPopup.grab_release()
+        else:
+            try:
+                self.p4SwitchRunPopup.tk_popup(event.x_root, event.y_root, 0)
+            finally:
+                # make sure to release the grab (Tk 8.0a1 only)
+                self.p4SwitchRunPopup.grab_release()
 
     def xterm( self, _ignore=None ):
         "Make an xterm when a button is pressed."
@@ -3858,6 +4139,110 @@ R91+ZtRtZMLuZXfYPYsw/vWo8VZjbW0t/n0eKNPC8nLOz1UOTZTLJ3LZ3LNBPnc0E2QPZHyvQEL6
 myODd9tDGyUqIqMGwqhdoePb0iTriNUaq8G6lGbjzcGgf3f1+b91Kk5YWHDnDxwo5NxCWRguCNfx
 ASBhZaSWUQI9HIVqEOnO4Oa5c/FekfYkr/8CC/FIq8t0DssAAAAASUVORK5CYII=
 """ ),
+
+    'P4Switch' : PhotoImage ( data=r"""
+        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
+        """),
 
     'VM': PhotoImage ( data=r"""
     iVBORw0KGgoAAAANSUhEUgAAAD8AAAAUCAYAAAA6NOUqAAAABmJLR0QA/wD/AP+gvaeTAAAACXBI
