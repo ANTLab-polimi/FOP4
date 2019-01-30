@@ -22,6 +22,7 @@ import shlex
 from mininet.log import info
 from mininet.term import cleanUpScreens
 from mininet.net import SAP_PREFIX
+from mininet.bmv2 import SIMPLE_SWITCH_GRPC
 
 def sh( cmd ):
     "Print a command and send it to the shell"
@@ -91,6 +92,11 @@ class Cleanup( object ):
         for dp in dps:
             sh( 'ovs-vsctl del-br ' + dp )
 
+        #P4 switch cleaning SIMPLE_SWITCH_GRPC
+        info("*** Killing all running BMV2 P4 Switches\n")
+        killprocs(SIMPLE_SWITCH_GRPC)
+
+
         info( "*** Removing all links of the pattern foo-ethX\n" )
         links = sh( "ip link show | "
                     "egrep -o '([-_.[:alnum:]]+-eth[[:digit:]]+)'"
@@ -119,7 +125,8 @@ class Cleanup( object ):
             callback()
 
         # Containernet should also cleanup pending Docker
-        cmd =  "docker rm -f $( docker ps --filter 'label=com.containernet' -a -q)"
+        info("*** Cleaning pending Docker containers\n")
+        cmd = "docker rm -f $( docker ps --filter 'label=com.containernet' -a -q)"
         call(cmd, shell=True, stdout=open(os.devnull, 'wb'),  stderr=open(os.devnull, 'wb'))
 
         # cleanup any remaining iptables rules from external SAPs with NAT
