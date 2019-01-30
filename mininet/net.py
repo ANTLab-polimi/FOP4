@@ -109,6 +109,8 @@ from mininet.util import ( quietRun, fixLimits, numCores, ensureRoot,
                            waitListening )
 from mininet.term import cleanUpScreens, makeTerms
 
+from mininet.bmv2 import ONOSBmv2Switch
+
 from subprocess import Popen
 
 # Mininet version: should be consistent with README and LICENSE
@@ -408,6 +410,23 @@ class Mininet( object ):
             node1.attach(link.intf1)
         if isinstance( node2, OVSSwitch ):
             node2.attach(link.intf2)
+
+        # Allow to add links at runtime to BMv2 instances
+        # this part is only for runtime purposes
+        if isinstance(node1, ONOSBmv2Switch) and node1.thriftPort is not None:
+            info("Attach node to BMV2 runtime")
+            node1.attach(link.intf1)
+            if self.controllers is not None and len(self.controllers) > 0 :
+                node1.doOnosNetcfg(ONOSBmv2Switch.controllerIp(self.controllers))
+            else:
+                node1.doOnosNetcfg(None)
+        if isinstance(node2, ONOSBmv2Switch) and node2.thriftPort is not None:
+            info("Attach node to BMV2 runtime")
+            node2.attach(link.intf2)
+            if self.controllers is not None and len(self.controllers) > 0 :
+                node2.doOnosNetcfg(ONOSBmv2Switch.controllerIp(self.controllers))
+            else:
+                node2.doOnosNetcfg(None)
 
         self.links.append( link )
         return link
