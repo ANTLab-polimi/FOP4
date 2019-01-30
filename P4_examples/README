@@ -2,10 +2,10 @@
 h1) IP: 192.168.1.104, MAC: 00:00:00:00:00:04
 h2) IP: 192.168.1.105, MAC: 00:00:00:00:00:05
 
-1 Fake Host (Docker Image: containernet_ubuntup4:latest)
+1 Fake Host (Docker Image: containernet_example:ubuntup4)
 d1) IP: 192.168.1.100, MAC: 00:00:00:00:00:01
 
-2 LAMP SERVER (Docker image: containernet_lamp:latest)
+2 LAMP SERVER (Docker image: containernet_example:lamp)
 d2) IP: 192.168.1.200, MAC: 00:00:00:00:00:A0
 d3) IP: 192.168.1.201, MAC: 00:00:00:00:00:A1
 
