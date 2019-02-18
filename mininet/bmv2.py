@@ -1,5 +1,22 @@
-# FROM: https://github.com/p4lang/tutorials
-# FROM: https://github.com/opennetworkinglab/onos
+"""
+Copyright 2019-present Open Networking Foundation
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
+"""
+Inspired from https://github.com/p4lang/tutorials and https://github.com/opennetworkinglab/onos
+"""
 import json
 import multiprocessing
 import os
@@ -110,7 +127,7 @@ class ONOSBmv2Switch(Switch):
                  elogger=False, grpcport=None, cpuport=255, notifications=False,
                  thriftport=None, netcfg=True, dryrun=False, pipeconf="",
                  pktdump=False, valgrind=False, gnmi=False,
-                 portcfg=True, onosdevid=None, **kwargs):
+                 portcfg=True, onosdevid=None, switch_config=None, **kwargs):
         Switch.__init__(self, name, **kwargs)
         self.grpcPort = grpcport
         self.thriftPort = thriftport
@@ -141,7 +158,7 @@ class ONOSBmv2Switch(Switch):
         self.logfd = None
         self.bmv2popen = None
         self.stopped = False
-
+        self.switch_config = switch_config
         # Remove files from previous executions
         self.cleanupTmpFiles()
 
@@ -277,10 +294,24 @@ class ONOSBmv2Switch(Switch):
                 self.waitBmv2Start()
                 # We want to be notified if BMv2 dies...
                 threading.Thread(target=watchDog, args=[self]).start()
+                if self.json is not None:
+                    if self.switch_config is not None:
+                        # Switch initial configuration using Thrift CLI
+                        try:
+                            with open(self.switch_config, mode='r') as f:
+                                # map(self.bmv2Thrift(), f.readlines())
+                                for cmd_row in f:
+                                    self.bmv2Thrift(cmd_row)
+                            info("\nSwitch has been configured with %s configuration file" % self.switch_config)
+                        except IOError:
+                            info("\nSwitch configuration file %s not found" % self.switch_config)
                 if controllers is not None and len(controllers) > 0:
                     self.doOnosNetcfg(self.controllerIp(controllers))
                 else:
                     self.doOnosNetcfg(None)
+                    info("NO ONOS NETCFG")
+
+
         except Exception:
             ONOSBmv2Switch.mininet_exception = 1
             self.killBmv2()
