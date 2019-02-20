@@ -778,6 +778,14 @@ class P4SwitchDialog(CustomDialog):
             self.jsonEntry.insert(0, self.prefValues['json'])
         propRowCount+=1
 
+        # Field for switch configuration file
+        Label(self.propFrame, text="Switch configuration:").grid(row=propRowCount, sticky=E)
+        self.switch_config = Entry(self.propFrame)
+        self.switch_config.grid(row=propRowCount, column=1)
+        if "switch_config" in self.prefValues:
+            self.switch_config.insert(0, self.prefValues['switch_config'])
+        propRowCount += 1
+
         # Field for switch ONOS pipeconf
         Label(self.propFrame, text="ONOS Pipeconf:").grid(row=propRowCount, sticky=E)
         self.pipeconfEntry = Entry(self.propFrame)
@@ -839,6 +847,7 @@ class P4SwitchDialog(CustomDialog):
                    'switchIP':self.ipEntry.get(),
                    'loglevel':self.loglevelEntry.get(),
                    'json':self.jsonEntry.get(),
+                   'switch_config':self.switch_config.get(),
                    'pipeconf':self.pipeconfEntry.get(),
                    'pktdump': True if self.pktdump.get()==1 else False,
                    'switchType': 'P4Switch',
@@ -2885,6 +2894,8 @@ class MiniEdit( Frame ):
                 widget[ 'text' ] = name
             if len(p4switchBox.result['json']) > 0:
                 newP4SwitchOpts['json'] = p4switchBox.result['json']
+            if len(p4switchBox.result['switch_config']) > 0:
+                newP4SwitchOpts['switch_config'] = p4switchBox.result['switch_config']
             newP4SwitchOpts['pktdump'] = p4switchBox.result['pktdump']
             if len(p4switchBox.result['pipeconf']) > 0:
                 newP4SwitchOpts['pipeconf'] = p4switchBox.result['pipeconf']
