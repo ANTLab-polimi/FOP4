@@ -109,7 +109,7 @@ from mininet.util import ( quietRun, fixLimits, numCores, ensureRoot,
                            waitListening )
 from mininet.term import cleanUpScreens, makeTerms
 
-from mininet.bmv2 import ONOSBmv2Switch
+from mininet.bmv2 import ONOSBmv2Switch, Bmv2Switch
 
 from subprocess import Popen
 
@@ -1022,6 +1022,12 @@ class Containernet( Mininet ):
         Wrapper for removeHost. Just to be complete.
         """
         return self.removeHost(name, **params)
+
+    def addP4Switch(self, name, cls=ONOSBmv2Switch, **params):
+        """
+        Wrapper for addSwitch method that adds a BMv2 P4 switch
+        """
+        return self.addSwitch( name, cls=cls, **params)
 
 
     def addExtSAP(self, sapName, sapIP, dpid=None, **params):
