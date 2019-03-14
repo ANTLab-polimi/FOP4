@@ -155,6 +155,7 @@ class ONOSBmv2Switch(Switch):
             self.onosDeviceId = onosdevid
         else:
             self.onosDeviceId = "device:bmv2:%s" % self.name
+        self.p4DeviceId = BMV2_DEFAULT_DEVICE_ID
         self.logfd = None
         self.bmv2popen = None
         self.stopped = False
@@ -174,7 +175,10 @@ class ONOSBmv2Switch(Switch):
     def getDeviceConfig(self, srcIP):
 
         basicCfg = {
-            "driver": "bmv2"
+            "managementAddress": "grpc://%s:%d?device_id=%d" % (
+                srcIP, self.grpcPort, self.p4DeviceId),
+            "driver": "bmv2",
+            "pipeconf": self.pipeconfId
         }
 
         if self.longitude and self.latitude:
@@ -182,21 +186,6 @@ class ONOSBmv2Switch(Switch):
             basicCfg["latitude"] = self.latitude
 
         cfgData = {
-            "generalprovider": {
-                "p4runtime": {
-                    "ip": srcIP,
-                    "port": self.grpcPort,
-                    "deviceId": BMV2_DEFAULT_DEVICE_ID,
-                    "deviceKeyId": "p4runtime:%s" % self.onosDeviceId
-                },
-                # "bmv2-thrift": {
-                #    "ip": srcIP,
-                #    "port": self.thriftPort
-                # }
-            },
-            "piPipeconf": {
-                "piPipeconfId": self.pipeconfId
-            },
             "basic": basicCfg
         }
 
@@ -345,7 +334,7 @@ class ONOSBmv2Switch(Switch):
             self.grpcPort = pickUnusedPort()
         if self.thriftPort is None:
             self.thriftPort = pickUnusedPort()
-        args = ['--device-id %s' % str(BMV2_DEFAULT_DEVICE_ID)]
+        args = ['--device-id %s' % self.p4DeviceId]
         for port, intf in self.intfs.items():
             if not intf.IP():
                 args.append('-i %d@%s' % (port, intf.name))
