@@ -51,7 +51,7 @@ Future enhancements:
 
 - Create proxy objects for remote nodes (Mininet: Cluster Edition)
 """
-
+import errno
 import os
 import pty
 import re
@@ -141,10 +141,10 @@ class Node( object ):
         # Spawn a shell subprocess in a pseudo-tty, to disable buffering
         # in the subprocess and insulate it from signals (e.g. SIGINT)
         # received by the parent
-        master, slave = pty.openpty()
-        self.shell = self._popen( cmd, stdin=slave, stdout=slave, stderr=slave,
+        self.master, self.slave = pty.openpty()
+        self.shell = self._popen( cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave,
                                   close_fds=False )
-        self.stdin = os.fdopen( master, 'rw' )
+        self.stdin = os.fdopen( self.master, 'rw' )
         self.stdout = self.stdin
         self.pid = self.shell.pid
         self.pollOut = select.poll()
@@ -210,6 +210,14 @@ class Node( object ):
         # if self.name in intfName:
         # quietRun( 'ip link del ' + intfName )
         self.shell = None
+        if self.master:
+            self.stdin.close()
+            self.master = None
+            self.stdin = None
+            self.stdout = None
+        if self.slave:
+            os.close(self.slave)
+            self.slave = None
 
     # Subshell I/O, commands and control
 
@@ -759,6 +767,7 @@ class Docker ( Host ):
             name="%s.%s" % (self.dnameprefix, name),
             image=self.dimage,
             command=self.dcmd,
+            entrypoint=list(),  # overwrite (will be executed manually at the end)
             stdin_open=True,  # keep container open
             tty=True,  # allocate pseudo tty
             environment=self.environment,
@@ -783,14 +792,70 @@ class Docker ( Host ):
 
         # let's initially set our resource limits
         self.update_resources(**self.resources)
-        # self.updateCpuLimit(cpu_quota=self.resources.get('cpu_quota'),
-        #                     cpu_period=self.resources.get('cpu_period'),
-        #                     cpu_shares=self.resources.get('cpu_shares'),
-        #                     )
-        # self.updateMemoryLimit(mem_limit=self.resources.get('mem_limit'),
-        #                        memswap_limit=self.resources.get('memswap_limit')
-        #                        )
 
+        self.master = None
+        self.slave = None
+
+    def start(self):
+        # Containernet ignores the CMD field of the Dockerfile.
+        # Lets try to load it here and manually execute it once the
+        # container is started and configured by Containernet:
+        cmd_field = self.get_cmd_field(self.dimage)
+        entryp_field = self.get_entrypoint_field(self.dimage)
+        if entryp_field is not None:
+            if cmd_field is None:
+                cmd_field = list()
+            # clean up cmd_field
+            try:
+                cmd_field.remove(u'/bin/sh')
+                cmd_field.remove(u'-c')
+            except ValueError as ex:
+                pass
+            # we just add the entryp. commands to the beginning:
+            cmd_field = entryp_field + cmd_field
+        if cmd_field is not None:
+            cmd_field.append("> /dev/pts/0 2>&1")  # make output available to docker logs
+            cmd_field.append("&")  # put to background (works, but not nice)
+            info("{}: running CMD: {}\n".format(self.name, cmd_field))
+            self.cmd(" ".join(cmd_field))
+
+    def get_cmd_field(self, imagename):
+        """
+        Try to find the original CMD command of the Dockerfile
+        by inspecting the Docker image.
+        Returns list from CMD field if it is different from
+        a single /bin/bash command which Containernet executes
+        anyhow.
+        """
+        try:
+            imgd = self.dcli.inspect_image(imagename)
+            cmd = imgd.get("Config", {}).get("Cmd")
+            assert isinstance(cmd, list)
+            # filter the default case: a single "/bin/bash"
+            if "/bin/bash" in cmd and len(cmd) == 1:
+                return None
+            return cmd
+        except BaseException as ex:
+            error("Error during image inspection of {}:{}"
+                  .format(imagename, ex))
+        return None
+
+    def get_entrypoint_field(self, imagename):
+        """
+        Try to find the original ENTRYPOINT command of the Dockerfile
+        by inspecting the Docker image.
+        Returns list or None.
+        """
+        try:
+            imgd = self.dcli.inspect_image(imagename)
+            ep = imgd.get("Config", {}).get("Entrypoint")
+            if isinstance(ep, list) and len(ep) < 1:
+                return None
+            return ep
+        except BaseException as ex:
+            error("Error during image inspection of {}:{}"
+                  .format(imagename, ex))
+        return None
 
     # Command support via shell process in namespace
     def startShell( self, *args, **kwargs ):
@@ -811,10 +876,10 @@ class Docker ( Host ):
         # Spawn a shell subprocess in a pseudo-tty, to disable buffering
         # in the subprocess and insulate it from signals (e.g. SIGINT)
         # received by the parent
-        master, slave = pty.openpty()
-        self.shell = self._popen( cmd, stdin=slave, stdout=slave, stderr=slave,
+        self.master, self.slave = pty.openpty()
+        self.shell = self._popen( cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave,
                                   close_fds=False )
-        self.stdin = os.fdopen( master, 'rw' )
+        self.stdin = os.fdopen( self.master, 'rw' )
         self.stdout = self.stdin
         self.pid = self._get_pid()
         self.pollOut = select.poll()
@@ -853,6 +918,7 @@ class Docker ( Host ):
             self.dcli.remove_container(self.dc, force=True, v=True)
         except docker.errors.APIError as e:
             warn("Warning: API error during container removal.\n")
+
         self.cleanup()
 
     def sendCmd( self, *args, **kwargs ):
@@ -1364,6 +1430,7 @@ class Switch( Node ):
            deleteIntfs: delete interfaces? (True)"""
         if deleteIntfs:
             self.deleteIntfs()
+        self.terminate()
 
     def __repr__( self ):
         "More informative string representation"
@@ -1710,7 +1777,16 @@ class OVSSwitch( Switch ):
              ' -- '.join( delcmd % s.deployed_name for s in switches ), shell=True )
         # Next, shut down all of the processes
         pids = ' '.join( str( switch.pid ) for switch in switches )
-        run( 'kill -HUP ' + pids )
+
+        success = False
+        while not success:
+            try:
+                run( 'kill -HUP ' + pids )
+                success = True
+            except select.error as e:
+                # retry on interrupt
+                if e[0] != errno.EINTR:
+                    raise
         for switch in switches:
             switch.shell = None
         return switches
