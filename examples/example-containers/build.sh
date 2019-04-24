@@ -11,3 +11,5 @@ docker build -t containernet_example:centos7 -f Dockerfile.centos7 .
 docker build -t containernet_example:lamp -f Dockerfile.lamp .
 docker build -t containernet_example:haproxy -f Dockerfile.HAProxy .
 docker build -t containernet_example:ubuntup4 -f Dockerfile.ubuntu_p4 .
+
+docker build -t containernet_example:nDPI -f Dockerfile.nDPI .
