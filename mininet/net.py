@@ -99,6 +99,7 @@ from itertools import chain, groupby
 from math import ceil
 
 from mininet.cli import CLI
+from mininet.ebpf import EbpfXdpNode
 from mininet.log import info, error, debug, output, warn
 from mininet.node import ( Node, Docker, Host, OVSKernelSwitch,
                            DefaultController, Controller, OVSSwitch, OVSBridge )
@@ -1029,6 +1030,11 @@ class Containernet( Mininet ):
         """
         return self.addSwitch( name, cls=cls, **params)
 
+    def addSmartNic(self, name, cls=EbpfXdpNode, **params):
+        """
+        Wrapper for addSwitch method that adds a BMv2 P4 switch
+        """
+        return self.addHost(name, cls=cls, **params)
 
     def addExtSAP(self, sapName, sapIP, dpid=None, **params):
         """
@@ -1049,6 +1055,21 @@ class Containernet( Mininet ):
 
         return SAPswitch
 
+    def addLink(self, node1, node2, port1=None, port2=None,
+                cls=None, ebpfProgram1=None, ebpfProgram2=None, **params):
+        link = Mininet.addLink(self, node1, node2, port1=port1, port2=port2, cls=cls,**params)
+
+        # Allow to load the eBPF program when the link and the interface is created
+        if isinstance(node1, EbpfXdpNode):
+            node1.loadEbpfOnInterface(ebpfProgram=ebpfProgram1, intf=link.intf1)
+        elif ebpfProgram1 is not None:
+            error("Failed to load the eBPF program on the first node\n")
+        if isinstance(node2, EbpfXdpNode):
+            node2.loadEbpfOnInterface(ebpfProgram=ebpfProgram2, intf=link.intf2)
+        elif ebpfProgram2 is not None:
+            error("Failed to load the eBPF program on the second node\n")
+        return link
+
     def removeExtSAP(self, sapName):
         SAPswitch = self.SAPswitches[sapName]
         info( 'stopping external SAP:' + SAPswitch.name + ' \n' )
@@ -1056,7 +1077,6 @@ class Containernet( Mininet ):
         SAPswitch.terminate()
 
         self.removeSAPNAT(SAPswitch)
-
 
     def addSAPNAT(self, SAPSwitch):
         """
