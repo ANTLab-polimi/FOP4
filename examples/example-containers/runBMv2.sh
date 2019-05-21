@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #INTF_LIST=`ls -l /sys/class/net | grep nw | awk '{print $9}'`
-INTF_LIST=`ls -l /sys/class/net | grep root | awk '{print $9}'`
+INTF_LIST=`ls -l /sys/class/net | grep nw | awk '{print $9}'`
 n=1
 INTF_SW=""
 for i in $INTF_LIST

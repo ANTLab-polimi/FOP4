@@ -1,4 +1,7 @@
 FROM ubuntu:bionic
+
+LABEL maintainer="Daniele Moro <daniele.moro@polimi.it>"
+
 RUN apt-get update && apt-get install -y \
     net-tools \
     iputils-ping \
@@ -27,4 +30,4 @@ RUN ./installP4.sh
 
 EXPOSE 9090/tcp
 
-ENTRYPOINT ./startP4.sh
+ENTRYPOINT ./runBMv2.sh

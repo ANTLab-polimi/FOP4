@@ -1030,7 +1030,7 @@ class Containernet( Mininet ):
         """
         return self.addSwitch( name, cls=cls, **params)
 
-    def addSmartNic(self, name, cls=EbpfXdpNode, **params):
+    def addEbpfHost(self, name, cls=EbpfXdpNode, **params):
         """
         Wrapper for addSwitch method that adds a BMv2 P4 switch
         """
