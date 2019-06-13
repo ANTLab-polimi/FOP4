@@ -1,21 +1,21 @@
-# UC3: extended INT (eINT) with VNFs support
+# extended INT (eINT) with VNFs support
 
 ## Demo architecture
 
-![Scenario3](https://github.com/ANTLab-polimi/UC-P4Containernet/raw/master/uc3_int/doc/UC3_2.png)
+![Scenario3](https://github.com/ANTLab-polimi/FOP4/raw/master/P4_example/eINT/doc/UC3_2.png)
 
 ## Example of functionality
-![Scenario3Example](https://github.com/ANTLab-polimi/UC-P4Containernet/raw/master/uc3_int/doc/UC3_1.png)
+![Scenario3Example](https://github.com/ANTLab-polimi/FOP4/raw/master/P4_example/eINT//doc/UC3_1.png)
 
 
 ## Demo walkthorough
 
-### Step 1: Start Containernet topology
+### Step 1: Start FOP4 topology
 
 ```sh
-sudo python uc3_topology.py
+sudo python eint_topology.py
 
-# check if things run in Containernet:
+# check if things run in FOP4:
 containernet> dump
 <P4Host h1: h1-eth0:10.0.0.1 pid=14102> 
 <P4Host h2: h2-eth0:10.0.0.2 pid=14104> 
@@ -30,8 +30,8 @@ containernet> dump
 # check Docker status
 $ docker ps
 CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
-2f3585b0c837        p4c-vnf-int         "/bin/bash"         53 seconds ago      Up 52 seconds                           mn.v2
-ac083b30a046        p4c-vnf-int         "/bin/bash"         54 seconds ago      Up 54 seconds                           mn.v1
+2f3585b0c837        fop4_example:eINT   "/bin/bash"         53 seconds ago      Up 52 seconds                           mn.v2
+ac083b30a046        fop4_example:eINT   "/bin/bash"         54 seconds ago      Up 54 seconds                           mn.v1
 
 ```
 
