@@ -1,4 +1,4 @@
-# P4 examples on Containernet
+# P4 examples on FOP4
 
 ## Pre-requisites
 
@@ -9,7 +9,7 @@ You can follow the guide provided by *p4.org*.
 * `p4c`: you need to install the P4 compiler following [this guide](https://github.com/p4lang/p4c)
 * `behavioural-model`: you need to install `simple_switch_grpc` following [this guide](https://github.com/p4lang/behavioral-model/tree/master/targets/simple_switch_grpc) (remember to install also **P4Runtime**)
 
-Alternatively, you can use [this script](https://github.com/jafingerhut/p4-guide/blob/master/bin/install-p4dev-p4runtime.sh) (thanks to **Andy Fingerhut**) or the [ONF script](https://github.com/opennetworkinglab/onos/blob/master/tools/dev/p4vm/install-p4-tools.sh) that should install both `p4c` and `behavioural-model` with support to P4Runtime.
+Alternatively, you can use the [ONF script](https://github.com/opennetworkinglab/onos/blob/master/tools/dev/p4vm/install-p4-tools.sh) that should install both `p4c` and `behavioural-model` with support to P4Runtime.
 
 See [here](https://github.com/jafingerhut/p4-guide/blob/master/bin/README-install-troubleshooting.md) for troubleshooting.
 
@@ -47,8 +47,3 @@ To check it you can try to open the page `index.php` and you can check the addre
 ## Miniedit.py
 
 You can use a GUI using `miniedit.py` script on the `example` folder of this repository, this script has support for P4 BMv2 switches.
-
-## TODO
-
-* now the loadbalancer is based on the 5-tuple, make it dependent on the src_ip
-* add more P4 functions examples
