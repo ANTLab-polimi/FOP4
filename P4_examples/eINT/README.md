@@ -2,10 +2,10 @@
 
 ## Demo architecture
 
-![Scenario3](https://github.com/ANTLab-polimi/FOP4/raw/master/P4_example/eINT/doc/UC3_2.png)
+![Scenario3](https://github.com/ANTLab-polimi/FOP4/raw/master/P4_examples/eINT/doc/UC3_2.png)
 
 ## Example of functionality
-![Scenario3Example](https://github.com/ANTLab-polimi/FOP4/raw/master/P4_example/eINT//doc/UC3_1.png)
+![Scenario3Example](https://github.com/ANTLab-polimi/FOP4/raw/master/P4_examples/eINT//doc/UC3_1.png)
 
 
 ## Demo walkthorough
