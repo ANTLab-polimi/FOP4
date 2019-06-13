@@ -1,0 +1,6 @@
+table_add ingress.table0_control.table0 set_egress_port 0x0001&&&0xFFFF 0&&&0 0&&&0 0x0800&&&0xFFFF 0&&&0 0&&&0 0x11&&&0xFF 0&&&0 0&&&0 => 2 1
+table_add ingress.table0_control.table0 set_egress_port 0x0002&&&0xFFFF 0&&&0 0&&&0 0x0800&&&0xFFFF 0&&&0 0&&&0 0x11&&&0xFF 0&&&0 0&&&0 => 1 2
+table_add egress.process_int_transit.tb_int_insert init_metadata 1 => 0x04
+table_add egress.
+table_add ingress.process_int_source_sink.tb_set_sink int_set_sink 0x0002 =>
+mirroring_add 500 3

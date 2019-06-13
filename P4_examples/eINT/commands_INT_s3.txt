@@ -1,0 +1,4 @@
+table_add ingress.table0_control.table0 set_egress_port 0x0001&&&0xFFFF 0&&&0 0&&&0 0x0800&&&0xFFFF 0&&&0 0&&&0 0x11&&&0xFF 0&&&0 0&&&0 => 3 1
+table_add ingress.table0_control.table0 set_egress_port 0x0002&&&0xFFFF 0&&&0 0&&&0 0x0800&&&0xFFFF 0&&&0 0&&&0 0x11&&&0xFF 0&&&0 0&&&0 => 1 2
+table_add ingress.table0_control.table0 set_egress_port 0x0004&&&0xFFFF 0&&&0 0&&&0 0x0800&&&0xFFFF 0&&&0 0&&&0 0x11&&&0xFF 0&&&0 0&&&0 => 2 3
+table_add egress.process_int_transit.tb_int_insert init_metadata 1 => 0x03
