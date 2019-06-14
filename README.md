@@ -38,7 +38,7 @@ If you use FOP4 for your research and/or other publications, please cite (beside
 ---
 ## Installation
 
-FOPA comes with three installation and deployment options.
+FOP4 comes with three installation and deployment options.
 
 ### Option 1: Bare-metal installation
 
