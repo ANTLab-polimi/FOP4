@@ -68,7 +68,7 @@ Start example topology with some empty Docker containers connected to the networ
 
 * `cd FOP4`
 * run: `sudo python examples/containernet_example.py`
-* use: `FOP4> d1 ifconfig` to see config of container `d1`
+* use: `containernet> d1 ifconfig` to see config of container `d1`
 
 ### Topology example
 
