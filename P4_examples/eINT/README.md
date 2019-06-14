@@ -10,7 +10,15 @@
 
 ## Demo walkthorough
 
-### Step 1: Start FOP4 topology
+### Step 1: Add int-vnf
+
+```sh
+cd int-vnf/
+./buid.sh
+```
+
+### Step 2: Start FOP4 topology
+
 
 ```sh
 sudo python eint_topology.py

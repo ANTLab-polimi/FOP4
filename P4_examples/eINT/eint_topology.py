@@ -17,8 +17,8 @@ h2 = net.addHost('h2', cls=P4Host, ip='10.0.0.2', mac="00:00:00:00:00:02")
 h3 = net.addHost('h3', cls=P4Host, ip='10.0.0.254', mac="00:00:00:00:00:FF")
 
 
-v1 = net.addDocker('v1', cls=P4DockerHost, ip='10.0.0.100', mac="00:00:00:00:00:F1", dimage='p4c-int-vnf')
-v2 = net.addDocker('v2', cls=P4DockerHost, ip='10.0.0.101', mac="00:00:00:00:00:F2", dimage='p4c-int-vnf')
+v1 = net.addDocker('v1', cls=P4DockerHost, ip='10.0.0.100', mac="00:00:00:00:00:F1", dimage='fop4_example:eINT')
+v2 = net.addDocker('v2', cls=P4DockerHost, ip='10.0.0.101', mac="00:00:00:00:00:F2", dimage='fop4_example:eINT')
 
 info('*** Adding switches\n')
 # SWITCHES
