@@ -39,7 +39,7 @@
      pip: name=python-iptables state=latest
 
    - name: built and install Containernet (using Mininet installer)
-     shell: P4-Containernet/util/install.sh
+     shell: FOP4/util/install.sh
      args:
        chdir: ../../
 
