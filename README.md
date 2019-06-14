@@ -46,8 +46,8 @@ Automatic installation is provided through an Ansible playbook.
 * Requires: **Ubuntu Linux 18.04 LTS** and **P4 tools installed** see P4_example folder
     ```bash
     $ sudo apt-get install ansible git aptitude
-    $ git clone https://github.com/containernet/containernet.git
-    $ cd containernet/ansible
+    $ git clone https://github.com/ANTLab-polimi/FOP4.git
+    $ cd FOP4/ansible
     $ sudo ansible-playbook -i "localhost," -c local install.yml
     $ cd ..
     $ sudo python setup.py install
