@@ -59,12 +59,14 @@ import signal
 import select
 import docker
 import json
+import time
 from subprocess import Popen, PIPE, check_output
 from time import sleep
 
 from mininet.log import info, error, warn, debug
 from mininet.util import ( quietRun, errRun, errFail, moveIntf, isShellBuiltin,
-                           numCores, retry, mountCgroups )
+                           numCores, retry, mountCgroups, BaseString, decode,
+                           encode, Python3, which )
 from mininet.moduledeps import moduleDeps, pathCheck, TUN
 from mininet.link import Link, Intf, TCIntf, OVSIntf
 from re import findall
@@ -89,6 +91,9 @@ class Node( object ):
         self.privateDirs = params.get( 'privateDirs', [] )
         self.inNamespace = params.get( 'inNamespace', inNamespace )
 
+        # Python 3 complains if we don't wait for shell exit
+        self.waitExited = params.get( 'waitExited', Python3 )
+
         # Stash configuration parameters for future reference
         self.params = params
 
@@ -105,6 +110,7 @@ class Node( object ):
         self.readbuf = ''
 
         # Start command interpreter shell
+        self.master, self.slave = None, None  # pylint
         self.startShell()
         self.mountPrivateDirs()
 
@@ -137,14 +143,18 @@ class Node( object ):
         # -s: pass $* to shell, and make process easy to find in ps
         # prompt is set to sentinel chr( 127 )
         cmd = [ 'mnexec', opts, 'env', 'PS1=' + chr( 127 ),
-                'bash', '--norc', '-is', 'mininet:' + self.name ]
+                'bash', '--norc', '--noediting',
+                '-is', 'mininet:' + self.name ]
+
         # Spawn a shell subprocess in a pseudo-tty, to disable buffering
         # in the subprocess and insulate it from signals (e.g. SIGINT)
         # received by the parent
         self.master, self.slave = pty.openpty()
-        self.shell = self._popen( cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave,
-                                  close_fds=False )
-        self.stdin = os.fdopen( self.master, 'rw' )
+        self.shell = self._popen( cmd, stdin=self.slave, stdout=self.slave,
+                                  stderr=self.slave, close_fds=False )
+        # XXX BL: This doesn't seem right, and we should also probably
+        # close our files when we exit...
+        self.stdin = os.fdopen( self.master, 'r' )
         self.stdout = self.stdin
         self.pid = self.shell.pid
         self.pollOut = select.poll()
@@ -171,7 +181,7 @@ class Node( object ):
     def mountPrivateDirs( self ):
         "mount private directories"
         # Avoid expanding a string into a list of chars
-        assert not isinstance( self.privateDirs, basestring )
+        assert not isinstance( self.privateDirs, BaseString )
         for directory in self.privateDirs:
             if isinstance( directory, tuple ):
                 # mount given private directory
@@ -200,7 +210,9 @@ class Node( object ):
             params: parameters to Popen()"""
         # Leave this is as an instance method for now
         assert self
-        return Popen( cmd, **params )
+        popen = Popen( cmd, **params )
+        debug( '_popen', cmd, popen.pid )
+        return popen
 
     def cleanup( self ):
         "Help python collect its garbage."
@@ -209,6 +221,13 @@ class Node( object ):
         # for intfName in self.intfNames():
         # if self.name in intfName:
         # quietRun( 'ip link del ' + intfName )
+        if self.shell:
+            # Close ptys
+            self.stdin.close()
+            # os.close(self.slave)
+            if self.waitExited:
+                debug( 'waiting for', self.pid, 'to terminate\n' )
+                self.shell.wait()
         self.shell = None
         if self.master:
             self.stdin.close()
@@ -226,7 +245,7 @@ class Node( object ):
            maxbytes: maximum number of bytes to return"""
         count = len( self.readbuf )
         if count < maxbytes:
-            data = os.read( self.stdout.fileno(), maxbytes - count )
+            data = decode( os.read( self.stdout.fileno(), maxbytes - count ) )
             self.readbuf += data
         if maxbytes >= len( self.readbuf ):
             result = self.readbuf
@@ -250,7 +269,7 @@ class Node( object ):
     def write( self, data ):
         """Write data to node.
            data: string"""
-        os.write( self.stdin.fileno(), data )
+        os.write( self.stdin.fileno(), encode( data ) )
 
     def terminate( self ):
         "Send kill signal to Node and clean up after it."
@@ -279,7 +298,16 @@ class Node( object ):
            and return without waiting for the command to complete.
            args: command and arguments, or string
            printPid: print command's PID? (False)"""
-        assert self.shell# and not self.waiting
+        # be a bit more relaxed here and allow to wait 120s for the shell
+        cnt = 0
+        while (self.waiting and cnt < 5 * 120):
+            debug("Waiting for shell to unblock...")
+            time.sleep(.2)
+            cnt += 1
+        if cnt > 0:
+            warn("Shell unblocked after {:.2f}s"
+                 .format(float(cnt)/5))
+        assert self.shell and not self.waiting
         printPid = kwargs.get( 'printPid', False )
         # Allow sendCmd( [ list ] )
         if len( args ) == 1 and isinstance( args[ 0 ], list ):
@@ -386,23 +414,26 @@ class Node( object ):
                      'mncmd':
                      [ 'mnexec', '-da', str( self.pid ) ] }
         defaults.update( kwargs )
+        shell = defaults.pop( 'shell', False )
         if len( args ) == 1:
             if isinstance( args[ 0 ], list ):
                 # popen([cmd, arg1, arg2...])
                 cmd = args[ 0 ]
-            elif isinstance( args[ 0 ], basestring ):
+            elif isinstance( args[ 0 ], BaseString ):
                 # popen("cmd arg1 arg2...")
-                cmd = args[ 0 ].split()
+                cmd = [ args[ 0 ] ] if shell else args[ 0 ].split()
             else:
                 raise Exception( 'popen() requires a string or list' )
         elif len( args ) > 0:
             # popen( cmd, arg1, arg2... )
             cmd = list( args )
+        if shell:
+            cmd = [ os.environ[ 'SHELL' ], '-c' ] + [ ' '.join( cmd ) ]
         # Attach to our namespace  using mnexec -a
         cmd = defaults.pop( 'mncmd' ) + cmd
-        # Shell requires a string, not a list!
-        if defaults.get( 'shell', False ):
-            cmd = ' '.join( cmd )
+        ### Shell requires a string, not a list!
+        # if defaults.get( 'shell', False ):
+        #     cmd = ' '.join( cmd )
         popen = self._popen( cmd, **defaults )
         return popen
 
@@ -413,8 +444,8 @@ class Node( object ):
                             **kwargs )
         # Warning: this can fail with large numbers of fds!
         out, err = popen.communicate()
-        exitcode = popen.returncode
-        return out, err, exitcode
+        exitcode = popen.wait()
+        return decode( out ), decode( err ), exitcode
 
     # Interface management, configuration, and routing
 
@@ -447,6 +478,15 @@ class Node( object ):
             debug( 'moving', intf, 'into namespace for', self.name, '\n' )
             moveIntfFn( intf.name, self  )
 
+    def delIntf( self, intf ):
+        """Remove interface from Node's known interfaces
+           Note: to fully delete interface, call intf.delete() instead"""
+        port = self.ports.get( intf )
+        if port is not None:
+            del self.intfs[ port ]
+            del self.ports[ intf ]
+            del self.nameToIntf[ intf.name ]
+
     def defaultIntf( self ):
         "Return interface for lowest port"
         ports = self.intfs.keys()
@@ -467,8 +507,8 @@ class Node( object ):
         """
         if not intf:
             return self.defaultIntf()
-        elif isinstance( intf, basestring):
-            return self.nameToIntf.get(intf)
+        elif isinstance( intf, BaseString):
+            return self.nameToIntf[ intf ]
         else:
             return intf
 
@@ -494,7 +534,7 @@ class Node( object ):
         # explicitly so that we won't get errors if we run before they
         # have been removed by the kernel. Unfortunately this is very slow,
         # at least with Linux kernels before 2.6.33
-        for intf in self.intfs.values():
+        for intf in list( self.intfs.values() ):
             # Protect against deleting hardware interfaces
             if ( self.name in intf.name ) or ( not checkName ):
                 intf.delete()
@@ -519,7 +559,7 @@ class Node( object ):
         """Set the default route to go through intf.
            intf: Intf or {dev <intfname> via <gw-ip> ...}"""
         # Note setParam won't call us if intf is none
-        if isinstance( intf, basestring ) and ' ' in intf:
+        if isinstance( intf, BaseString ) and ' ' in intf:
             params = intf
         else:
             params = 'dev %s' % intf
@@ -566,7 +606,7 @@ class Node( object ):
            method: config method name
            param: arg=value (ignore if value=None)
            value may also be list or dict"""
-        name, value = param.items()[ 0 ]
+        name, value = list( param.items() )[ 0 ]
         if value is None:
             return
         f = getattr( self, method, None )
@@ -615,7 +655,7 @@ class Node( object ):
 
     def intfList( self ):
         "List of our interfaces sorted by port number"
-        return [ self.intfs[ p ] for p in sorted( self.intfs.iterkeys() ) ]
+        return [ self.intfs[ p ] for p in sorted( self.intfs.keys() ) ]
 
     def intfNames( self ):
         "The names of our interfaces sorted by port number"
@@ -663,8 +703,8 @@ class Docker ( Host ):
     We use the docker-py client library to control docker.
     """
 
-    def __init__(
-            self, name, dimage, dcmd=None, **kwargs):
+    def __init__(self, name, dimage=None, dcmd=None, build_params={},
+                 **kwargs):
         """
         Creates a Docker container as Mininet host.
 
@@ -701,13 +741,22 @@ class Docker ( Host ):
                      'memswap_limit': None,
                      'environment': {},
                      'volumes': [],  # use ["/home/user1/:/mnt/vol2:rw"]
+                     'tmpfs': [], # use ["/home/vol1/:size=3G,uid=1000"]
                      'network_mode': None,
                      'publish_all_ports': True,
                      'port_bindings': {},
                      'ports': [],
                      'dns': [],
+                     'ipc_mode': None,
+                     'devices': [],
+                     'cap_add': ['net_admin'],  # we need this to allow mininet network setup
+                     'storage_opt': None,
+                     'sysctls': {}
                      }
         defaults.update( kwargs )
+
+        if 'net_admin' not in defaults['cap_add']:
+            defaults['cap_add'] += ['net_admin']  # adding net_admin if it's cleared out to allow mininet network setup
 
         # keep resource in a dict for easy update during container lifetime
         self.resources = dict(
@@ -720,6 +769,7 @@ class Docker ( Host ):
         )
 
         self.volumes = defaults['volumes']
+        self.tmpfs = defaults['tmpfs']
         self.environment = {} if defaults['environment'] is None else defaults['environment']
         # setting PS1 at "docker run" may break the python docker api (update_container hangs...)
         # self.environment.update({"PS1": chr(127)})  # CLI support
@@ -727,13 +777,31 @@ class Docker ( Host ):
         self.publish_all_ports = defaults['publish_all_ports']
         self.port_bindings = defaults['port_bindings']
         self.dns = defaults['dns']
+        self.ipc_mode = defaults['ipc_mode']
+        self.devices = defaults['devices']
+        self.cap_add = defaults['cap_add']
+        self.sysctls = defaults['sysctls']
+        self.storage_opt = defaults['storage_opt']
 
         # setup docker client
         # self.dcli = docker.APIClient(base_url='unix://var/run/docker.sock')
-        self.dcli = docker.from_env().api
+        self.d_client = docker.from_env()
+        self.dcli = self.d_client.api
+
+        _id = None
+        if build_params.get("path", None):
+            if not build_params.get("tag", None):
+                if dimage:
+                    build_params["tag"] = dimage
+            _id, output = self.build(**build_params)
+            dimage = _id
+            self.dimage = _id
+            info("Docker image built: id: {},  {}. Output:\n".format(
+                _id, build_params.get("tag", None)))
+            info(output)
 
         # pull image if it does not exist
-        self._check_image_exists(dimage, True)
+        self._check_image_exists(dimage, True, _id=None)
 
         # for DEBUG
         debug("Created docker container object %s\n" % name)
@@ -742,16 +810,23 @@ class Docker ( Host ):
         info("%s: kwargs %s\n" % (name, str(kwargs)))
 
         # creats host config for container
-        # see: https://docker-py.readthedocs.org/en/latest/hostconfig/
+        # see: https://docker-py.readthedocs.io/en/stable/api.html#docker.api.container.ContainerApiMixin.create_host_config
         hc = self.dcli.create_host_config(
             network_mode=self.network_mode,
-            privileged=True,  # we need this to allow mininet network setup
+            privileged=False,  # no longer need privileged, using net_admin capability instead
             binds=self.volumes,
+            tmpfs=self.tmpfs,
             publish_all_ports=self.publish_all_ports,
             port_bindings=self.port_bindings,
             mem_limit=self.resources.get('mem_limit'),
             cpuset_cpus=self.resources.get('cpuset_cpus'),
             dns=self.dns,
+            ipc_mode=self.ipc_mode,  # string
+            devices=self.devices,  # see docker-py docu
+            cap_add=self.cap_add,  # see docker-py docu
+            sysctls=self.sysctls,   # see docker-py docu
+            storage_opt=self.storage_opt
+            
         )
 
         if kwargs.get("rm", False):
@@ -795,6 +870,11 @@ class Docker ( Host ):
 
         self.master = None
         self.slave = None
+
+    def build(self, **kwargs):
+        image, output = self.d_client.images.build(**kwargs)
+        output_str = parse_build_output(output)
+        return image.id, output_str
 
     def start(self):
         # Containernet ignores the CMD field of the Dockerfile.
@@ -879,7 +959,7 @@ class Docker ( Host ):
         self.master, self.slave = pty.openpty()
         self.shell = self._popen( cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave,
                                   close_fds=False )
-        self.stdin = os.fdopen( self.master, 'rw' )
+        self.stdin = os.fdopen( self.master, 'r' )
         self.stdout = self.stdin
         self.pid = self._get_pid()
         self.pollOut = select.poll()
@@ -980,18 +1060,21 @@ class Docker ( Host ):
             return False;
         return True
 
-    def _check_image_exists(self, imagename, pullImage=False):
+    def _check_image_exists(self, imagename=None, pullImage=False, _id=None):
         # split tag from repository if a tag is specified
-        if ":" in imagename:
-            #If two :, then the first is to specify a port. Otherwise, it must be a tag
-            slices = imagename.split(":")
-            repo = ":".join(slices[0:-1])
-            tag = slices[-1]
+        if imagename:
+            if ":" in imagename:
+                #If two :, then the first is to specify a port. Otherwise, it must be a tag
+                slices = imagename.split(":")
+                repo = ":".join(slices[0:-1])
+                tag = slices[-1]
+            else:
+                repo = imagename
+                tag = "latest"
         else:
-            repo = imagename
-            tag = "latest"
+            repo, tag = "None", "None"
 
-        if self._image_exists(repo, tag):
+        if self._image_exists(repo, tag, _id):
             return True
 
         # image not found
@@ -1002,20 +1085,22 @@ class Docker ( Host ):
         # we couldn't find the image
         return False
 
-    def _image_exists(self, repo, tag):
+    def _image_exists(self, repo, tag, _id=None):
         """
         Checks if the repo:tag image exists locally
         :return: True if the image exists locally. Else false.
         """
-        # filter by repository
-        images = self.dcli.images(repo)
-        imageName = "%s:%s" % (repo, tag)
-
+        print("1: ")
+        images = self.dcli.images()
+        imageTag = "%s:%s" % (repo, tag)
         for image in images:
-            if 'RepoTags' in image:
-                if image['RepoTags'] is None:
-                    return False
-                if imageName in image['RepoTags']:
+            if image.get("RepoTags", None):
+                if imageTag in image.get("RepoTags", []):
+                    debug("Image '{}' exists.\n".format(imageTag))
+                    return True
+            if image.get("Id", None):
+                print("; ".join([str(repo), str(tag), str(_id), str(image.get("Id"))]))
+                if image.get("Id") == _id:
                     return True
         return False
 
@@ -1032,13 +1117,13 @@ class Docker ( Host ):
                 # Collect output of the log for enhanced error feedback
                 message = message + json.dumps(json.loads(line), indent=4)
 
-        except:
+        except BaseException as ex:
             error('*** error: _pull_image: %s:%s failed.' % (repository, tag)
                   + message)
-        if not self._image_exists(repository, tag):
-            error('*** error: _pull_image: %s:%s failed.' % (repository, tag)
-                  + message)
-            return False
+        #if not self._image_exists(repository, tag):
+        #    error('*** error: _pull_image: %s:%s failed.' % (repository, tag)
+        #          + message)
+        #    return False
         return True
 
     def update_resources(self, **kwargs):
@@ -1083,7 +1168,7 @@ class Docker ( Host ):
 
         # also negative values can be set for cpu_quota (uncontrained setting)
         # just check if value is a valid integer
-        if isinstance(cpu_quota, (int, long)):
+        if isinstance(cpu_quota, int):
             self.resources['cpu_quota'] = self.cgroupSet("cfs_quota_us", cpu_quota)
         if cpu_period >= 0:
             self.resources['cpu_period'] = self.cgroupSet("cfs_period_us", cpu_period)
@@ -1203,15 +1288,15 @@ class CPULimitedHost( Host ):
         _out, _err, exitcode = errRun( 'cgdelete -r ' + self.cgroup )
         # Sometimes cgdelete returns a resource busy error but still
         # deletes the group; next attempt will give "no such file"
-        return exitcode == 0  or ( 'no such file' in _err.lower() )
+        return exitcode == 0 or ( 'no such file' in _err.lower() )
 
     def popen( self, *args, **kwargs ):
         """Return a Popen() object in node's namespace
            args: Popen() args, single list, or string
            kwargs: Popen() keyword args"""
         # Tell mnexec to execute command in our cgroup
-        mncmd = [ 'mnexec', '-g', self.name,
-                  '-da', str( self.pid ) ]
+        mncmd = kwargs.pop( 'mncmd', [ 'mnexec', '-g', self.name,
+                                       '-da', str( self.pid ) ] )
         # if our cgroup is not given any cpu time,
         # we cannot assign the RR Scheduler.
         if self.sched == 'rt':
@@ -1387,7 +1472,7 @@ class Switch( Node ):
         "Return correctly formatted dpid from dpid or switch name (s1 -> 1)"
         if dpid:
             # Remove any colons and make sure it's a good hex number
-            dpid = dpid.translate( None, ':' )
+            dpid = dpid.replace( ':', '' )
             assert len( dpid ) <= self.dpidLen and int( dpid, 16 ) >= 0
         else:
             # Use hex of the first number in the switch name
@@ -1395,6 +1480,7 @@ class Switch( Node ):
             if nums:
                 dpid = hex( int( nums[ 0 ] ) )[ 2: ]
             else:
+                self.terminate()  # Python 3.6 crash workaround
                 raise Exception( 'Unable to derive default datapath ID - '
                                  'please either specify a dpid or use a '
                                  'canonical switch name such as s23.' )
@@ -1684,6 +1770,7 @@ class OVSSwitch( Switch ):
             opts += ' protocols=%s' % self.protocols
         if self.stp and self.failMode == 'standalone':
             opts += ' stp_enable=true'
+        opts += ' other-config:dp-desc=%s' % self.name
         return opts
 
     def start( self, controllers ):
@@ -1753,7 +1840,7 @@ class OVSSwitch( Switch ):
             run( cmds, shell=True )
         # Reapply link config if necessary...
         for switch in switches:
-            for intf in switch.intfs.itervalues():
+            for intf in switch.intfs.values():
                 if isinstance( intf, TCIntf ):
                     intf.config( **intf.params )
         return switches
@@ -1788,6 +1875,7 @@ class OVSSwitch( Switch ):
                 if e[0] != errno.EINTR:
                     raise
         for switch in switches:
+            switch.terminate()
             switch.shell = None
         return switches
 
@@ -1807,7 +1895,7 @@ class OVSBridge( OVSSwitch ):
         # ip address of this bridge (eg. 10.10.0.1/24)
         self.ip = kwargs.get('ip')
 
-    def start( self ):
+    def start( self, controllers ):
         "Start bridge, ignoring controllers argument"
         OVSSwitch.start( self, controllers=[] )
 
@@ -1968,21 +2056,21 @@ class Controller( Node ):
     @classmethod
     def isAvailable( cls ):
         "Is controller available?"
-        return quietRun( 'which controller' )
+        return which( 'controller' )
 
 
 class OVSController( Controller ):
     "Open vSwitch controller"
-    def __init__( self, name, command='ovs-controller', **kwargs ):
-        if quietRun( 'which test-controller' ):
-            command = 'test-controller'
-        Controller.__init__( self, name, command=command, **kwargs )
+    def __init__( self, name, **kwargs ):
+        kwargs.setdefault( 'command', self.isAvailable() or
+                           'ovs-controller' )
+        Controller.__init__( self, name, **kwargs )
 
     @classmethod
     def isAvailable( cls ):
-        return ( quietRun( 'which ovs-controller' ) or
-                 quietRun( 'which test-controller' ) or
-                 quietRun( 'which ovs-testcontroller' ) )
+        return (which( 'ovs-controller' ) or
+                which( 'test-controller' ) or
+                which( 'ovs-testcontroller' ))
 
 class NOX( Controller ):
     "Controller to run a NOX application."
@@ -2079,13 +2167,16 @@ class RemoteController( Controller ):
         else:
             return True
 
+
 DefaultControllers = ( Controller, OVSController )
+
 
 def findController( controllers=DefaultControllers ):
     "Return first available controller from list, if any"
     for controller in controllers:
         if controller.isAvailable():
             return controller
+
 
 def DefaultController( name, controllers=DefaultControllers, **kwargs ):
     "Find a controller that is available and instantiate it"
@@ -2094,6 +2185,15 @@ def DefaultController( name, controllers=DefaultControllers, **kwargs ):
         raise Exception( 'Could not find a default OpenFlow controller' )
     return controller( name, **kwargs )
 
+
 def NullController( *_args, **_kwargs ):
     "Nonexistent controller - simply returns None"
     return None
+
+
+def parse_build_output(output):
+        output_str = ""
+        for line in output:
+            for item in line.values():
+                output_str += str(item)
+        return output_str

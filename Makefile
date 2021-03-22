@@ -2,60 +2,47 @@ MININET = mininet/*.py
 TEST = mininet/test/*.py
 EXAMPLES = mininet/examples/*.py
 MN = bin/mn
-PYMN = python -B bin/mn
+PYTHON ?= python3
+PYMN = $(PYTHON) -B bin/mn
 BIN = $(MN)
 PYSRC = $(MININET) $(TEST) $(EXAMPLES) $(BIN)
 MNEXEC = mnexec
 MANPAGES = mn.1 mnexec.1
 P8IGN = E251,E201,E302,E202,E126,E127,E203,E226
-BINDIR = /usr/bin
-MANDIR = /usr/share/man/man1
+PREFIX ?= /usr
+BINDIR ?= $(PREFIX)/bin
+MANDIR ?= $(PREFIX)/share/man/man1
 DOCDIRS = doc/html doc/latex
 PDF = doc/latex/refman.pdf
 
 CFLAGS += -Wall -Wextra
 
-all: codecheck test
+all: test
 
 clean:
 	rm -rf build dist *.egg-info *.pyc $(MNEXEC) $(MANPAGES) $(DOCDIRS)
 
-codecheck: $(PYSRC)
-	-echo "Running code check"
-	util/versioncheck.py
-	pyflakes $(PYSRC)
-	pylint --rcfile=.pylint $(PYSRC)
-#	Exclude miniedit from pep8 checking for now
-	pep8 --repeat --ignore=$(P8IGN) `ls $(PYSRC) | grep -v miniedit.py`
-
-errcheck: $(PYSRC)
-	-echo "Running check for errors only"
-	pyflakes $(PYSRC)
-	pylint -E --rcfile=.pylint $(PYSRC)
-
 test: $(MININET) $(TEST)
 	-echo "Running tests"
-	mininet/test/test_nets.py
-	mininet/test/test_hifi.py
-
-slowtest: $(MININET)
-	-echo "Running slower tests (walkthrough, examples)"
-	mininet/test/test_walkthrough.py -v
-	mininet/examples/test/runner.py -v
+	py.test -v mininet/test/test_containernet.py
 
 mnexec: mnexec.c $(MN) mininet/net.py
 	cc $(CFLAGS) $(LDFLAGS) -DVERSION=\"`PYTHONPATH=. $(PYMN) --version`\" $< -o $@
 
-install: $(MNEXEC) $(MANPAGES)
-	install $(MNEXEC) $(BINDIR)
-	install $(MANPAGES) $(MANDIR)
-	python setup.py install
+install-mnexec: $(MNEXEC)
+	install -D $(MNEXEC) $(BINDIR)/$(MNEXEC)
+
+install-manpages: $(MANPAGES)
+	install -D -t $(MANDIR) $(MANPAGES)
+
+install: install-mnexec install-manpages
+	$(PYTHON) setup.py install
 
 develop: $(MNEXEC) $(MANPAGES)
 # 	Perhaps we should link these as well
 	install $(MNEXEC) $(BINDIR)
 	install $(MANPAGES) $(MANDIR)
-	python setup.py develop
+	$(PYTHON) setup.py develop
 
 man: $(MANPAGES)
 
