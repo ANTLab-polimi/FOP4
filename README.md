@@ -50,7 +50,7 @@ $ git clone https://github.com/ANTLab-polimi/FOP4.git
 $ cd FOP4/ansible
 $ sudo ansible-playbook -i "localhost," -c local install.yml
 $ cd ..
-$ sudo python setup.py install
+$ sudo python3 setup.py install
 ```
 Wait (and have a coffee) ...
 
