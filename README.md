@@ -41,17 +41,18 @@ If you use FOP4 for your research and/or other publications, please cite (beside
 
 Automatic installation is provided through an Ansible playbook.
 
-Requires: **Ubuntu Linux 18.04 LTS** and **Python3** and **P4 tools installed** (see P4_example folder)
-Experimental: **Ubuntu Linux 20.04 LTS** and **Python3** and **P4 tools installed** (see P4_example folder)
-    ```bash
-    $ sudo apt-get install ansible git aptitude
-    $ git clone https://github.com/ANTLab-polimi/FOP4.git
-    $ cd FOP4/ansible
-    $ sudo ansible-playbook -i "localhost," -c local install.yml
-    $ cd ..
-    $ sudo python setup.py install
-    ```
-    Wait (and have a coffee) ...
+* Requires: **Ubuntu Linux 18.04 LTS** and **Python3** and **P4 tools installed** (see P4_example folder)
+* Experimental: **Ubuntu Linux 20.04 LTS** and **Python3** and **P4 tools installed** (see P4_example folder)
+
+```bash
+$ sudo apt-get install ansible git aptitude
+$ git clone https://github.com/ANTLab-polimi/FOP4.git
+$ cd FOP4/ansible
+$ sudo ansible-playbook -i "localhost," -c local install.yml
+$ cd ..
+$ sudo python setup.py install
+```
+Wait (and have a coffee) ...
 
 ---
 ## Examples
