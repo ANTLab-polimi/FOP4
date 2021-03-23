@@ -23,6 +23,7 @@ info('*** Adding docker containers\n')
 # Fake HOST
 d1 = net.addDocker('d1', cls=P4DockerHost, ip='192.168.1.100',
                    dimage="containernet_example:ubuntup4", mac="00:00:00:00:00:01")
+d1.start()
 # HOST
 h1 = net.addHost('h1', ip='192.168.1.104', mac="00:00:00:00:00:04")
 h2 = net.addHost('h2', ip='192.168.1.105', mac="00:00:00:00:00:05")
@@ -36,8 +37,10 @@ h2 = net.addHost('h2', ip='192.168.1.105', mac="00:00:00:00:00:05")
 # LAMP servers
 d2 = net.addDocker('d2', cls=P4DockerHost, ip='192.168.1.200',
                    dimage="containernet_example:lamp", mac="00:00:00:00:00:A0")
+d2.start()
 d3 = net.addDocker('d3', cls=P4DockerHost, ip='192.168.1.201',
                    dimage="containernet_example:lamp", mac="00:00:00:00:00:A1")
+d3.start()
 
 info('*** Adding switches\n')
 
