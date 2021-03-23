@@ -189,7 +189,7 @@ control c_ingress(inout headers_t hdr,
     }
 
     action _drop() {
-        mark_to_drop();
+        mark_to_drop(standard_metadata);
     }
 
     // Table counter used to count packets and bytes matched by each entry of
