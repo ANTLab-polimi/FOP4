@@ -249,7 +249,7 @@ class ONOSBmv2Switch(Switch):
         urllib.request.install_opener(urllib.request.build_opener(
             urllib.request.HTTPBasicAuthHandler(pm)))
         # Push config data to controller
-        req = urllib.request.Request(url, json.dumps(cfgData),
+        req = urllib.request.Request(url, json.dumps(cfgData).encode("utf-8"),
                               {'Content-Type': 'application/json'})
         try:
             f = urllib.request.urlopen(req)
