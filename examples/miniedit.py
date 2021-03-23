@@ -2583,7 +2583,7 @@ class MiniEdit( Frame ):
 
     def clickNode( self, event ):
         "Node click handler."
-        if self.active is 'NetLink':
+        if self.active == 'NetLink':
             self.startLink( event )
         else:
             self.selectNode( event )
@@ -2591,14 +2591,14 @@ class MiniEdit( Frame ):
 
     def dragNode( self, event ):
         "Node drag handler."
-        if self.active is 'NetLink':
+        if self.active == 'NetLink':
             self.dragNetLink( event )
         else:
             self.dragNodeAround( event )
 
     def releaseNode( self, event ):
         "Node release handler."
-        if self.active is 'NetLink':
+        if self.active == 'NetLink':
             self.finishLink( event )
 
     # Specific node handlers
@@ -2915,7 +2915,7 @@ class MiniEdit( Frame ):
                 newP4SwitchOpts['pipeconf'] = p4switchBox.result['pipeconf']
             newP4SwitchOpts['switchIP'] = p4switchBox.result['switchIP']
             self.switchOpts[name] = newP4SwitchOpts
-            print 'New P4Switch details for ' + name + ' = ' + str(newP4SwitchOpts)
+            print('New P4Switch details for ' + name + ' = ' + str(newP4SwitchOpts))
 
     def switchDetails( self, _ignore=None ):
         if ( self.selection is None or
@@ -2927,7 +2927,7 @@ class MiniEdit( Frame ):
         tags = self.canvas.gettags( self.selection )
         if 'Switch' not in tags:
             return
-        print name
+        print(name)
         prefDefaults = self.switchOpts[name]
         switchBox = SwitchDialog(self, title='Switch Details', prefDefaults=prefDefaults)
         self.master.wait_window(switchBox.top)
@@ -3422,7 +3422,6 @@ class MiniEdit( Frame ):
             dpctl = int(self.appPrefs['dpctl'])
         net = Containernet( topo=None,
                        listenPort=dpctl,
-                       build=False,
                        ipBase=self.appPrefs['ipBase'] )
 
         self.buildNodes(net)
