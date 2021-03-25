@@ -5,23 +5,24 @@
 ![Scenario3](https://github.com/ANTLab-polimi/FOP4/raw/master/P4_examples/eINT/doc/UC3_2.png)
 
 ## Example of functionality
-![Scenario3Example](https://github.com/ANTLab-polimi/FOP4/raw/master/P4_examples/eINT//doc/UC3_1.png)
+![Scenario3Example](https://github.com/ANTLab-polimi/FOP4/raw/master/P4_examples/eINT/doc/UC3_1.png)
 
 
-## Demo walkthorough
+## Demo walkthrough
 
 ### Step 1: Add int-vnf
 
 ```sh
 cd int-vnf/
-./buid.sh
+./build.sh
+cd ..
 ```
 
 ### Step 2: Start FOP4 topology
 
 
 ```sh
-sudo python eint_topology.py
+sudo python3 eint_topology.py
 
 # check if things run in FOP4:
 containernet> dump
@@ -36,7 +37,7 @@ containernet> dump
 <ONOSBmv2Switch s4: lo:127.0.0.1,s4-eth1:None,s4-eth2:None,s4-eth3:None pid=14403> 
 
 # check Docker status
-$ docker ps
+containernet> sh docker ps
 CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
 2f3585b0c837        fop4_example:eINT   "/bin/bash"         53 seconds ago      Up 52 seconds                           mn.v2
 ac083b30a046        fop4_example:eINT   "/bin/bash"         54 seconds ago      Up 54 seconds                           mn.v1
