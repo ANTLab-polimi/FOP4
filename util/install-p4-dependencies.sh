@@ -13,7 +13,6 @@ cd
 
 #Install basic packages
 sudo apt update
-sudo apt install -y git
 
 #Install dependencies with the script from https://github.com/jafingerhut/p4-guide/blob/master/bin/README-install-troubleshooting.md
 git clone https://github.com/jafingerhut/p4-guide
