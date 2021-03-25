@@ -62,7 +62,7 @@ Wait (and have a coffee) ...
 Start example topology with some empty Docker containers connected to the network.
 
 * `cd FOP4`
-* run: `sudo python examples/containernet_example.py`
+* run: `sudo python3 examples/containernet_example.py`
 * use: `containernet> d1 ifconfig` to see config of container `d1`
 * use: `containernet> d1 ping -c4 d2` to ping between containers
 
