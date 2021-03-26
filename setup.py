@@ -17,7 +17,7 @@ modname = distname = 'mininet'
 setup(
     name=distname,
     version=CONTAINERNET_VERSION,
-    description='Mininet fork that add Container support.',
+    description='Mininet fork that adds Container support.',
     author='Manuel Peuster',
     author_email='manuel.peuster@upb.de',
     packages=[ 'mininet', 'mininet.examples' ],
@@ -44,7 +44,7 @@ setup(
     install_requires=[
         'setuptools',
         'urllib3',
-        'docker==2.0.2',
+        'docker<=4.1.0',
         'python-iptables',
         'pytest',
         # fixes: https://github.com/pytest-dev/pytest/issues/4770

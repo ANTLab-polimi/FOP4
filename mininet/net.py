@@ -107,7 +107,7 @@ from mininet.nodelib import NAT
 from mininet.link import Link, Intf
 from mininet.util import ( quietRun, fixLimits, numCores, ensureRoot,
                            macColonHex, ipStr, ipParse, netParse, ipAdd,
-                           waitListening )
+                           waitListening, BaseString )
 from mininet.term import cleanUpScreens, makeTerms
 
 from mininet.bmv2 import ONOSBmv2Switch, Bmv2Switch
@@ -115,8 +115,8 @@ from mininet.bmv2 import ONOSBmv2Switch, Bmv2Switch
 from subprocess import Popen
 
 # Mininet version: should be consistent with README and LICENSE
-VERSION = "2.3.0d1"
-CONTAINERNET_VERSION = "2.0"
+VERSION = "2.3.0d5"
+CONTAINERNET_VERSION = "3.0"
 
 # If an external SAP (Service Access Point) is made, it is deployed with this prefix in the name,
 # so it can be removed at a later time
@@ -156,7 +156,9 @@ class Mininet( object ):
         self.intf = intf
         self.ipBase = ipBase
         self.ipBaseNum, self.prefixLen = netParse( self.ipBase )
-        self.nextIP = 1  # start for address allocation
+        hostIP = ( 0xffffffff >> self.prefixLen ) & self.ipBaseNum
+        # Start for address allocation
+        self.nextIP = hostIP if hostIP > 0 else 1
         self.inNamespace = inNamespace
         self.xterms = xterms
         self.cleanup = cleanup
@@ -200,7 +202,7 @@ class Mininet( object ):
             if not remaining:
                 info( '\n' )
                 return True
-            if time > timeout and timeout is not None:
+            if timeout is not None and time > timeout:
                 break
             sleep( delay )
             time += delay
@@ -249,7 +251,7 @@ class Mininet( object ):
         """
         Remove a host from the network at runtime.
         """
-        if not isinstance( name, basestring ) and name is not None:
+        if not isinstance( name, BaseString ) and name is not None:
             name = name.name  # if we get a host object
         try:
             h = self.get(name)
@@ -265,6 +267,24 @@ class Mininet( object ):
             debug("Removed: %s\n" % name)
             return True
         return False
+
+    def delNode( self, node, nodes=None):
+        """Delete node
+           node: node to delete
+           nodes: optional list to delete from (e.g. self.hosts)"""
+        if nodes is None:
+            nodes = ( self.hosts if node in self.hosts else
+                      ( self.switches if node in self.switches else
+                        ( self.controllers if node in self.controllers else
+                          [] ) ) )
+        node.stop( deleteIntfs=True )
+        node.terminate()
+        nodes.remove( node )
+        del self.nameToNode[ node.name ]
+
+    def delHost( self, host ):
+        "Delete a host"
+        self.delNode( host, nodes=self.hosts )
 
     def addSwitch( self, name, cls=None, **params ):
         """Add switch.
@@ -283,6 +303,10 @@ class Mininet( object ):
         self.switches.append( sw )
         self.nameToNode[ name ] = sw
         return sw
+
+    def delSwitch( self, switch ):
+        "Delete a switch"
+        self.delNode( switch, nodes=self.switches )
 
     def addController( self, name='c0', controller=None, **params ):
         """Add controller.
@@ -304,6 +328,12 @@ class Mininet( object ):
             self.controllers.append( controller_new )
             self.nameToNode[ name ] = controller_new
         return controller_new
+
+    def delController( self, controller ):
+        """Delete a controller
+           Warning - does not reconfigure switches, so they
+           may still attempt to connect to it!"""
+        self.delNode( controller )
 
     def addNAT( self, name='nat0', connect=True, inNamespace=False,
                 **params):
@@ -334,8 +364,8 @@ class Mininet( object ):
     def getNodeByName( self, *args ):
         "Return node(s) with given name(s)"
         if len( args ) == 1:
-            return self.nameToNode.get(args[0])
-        return [ self.nameToNode.get(n) for n in args ]
+            return self.nameToNode[ args[ 0 ] ]
+        return [ self.nameToNode[ n ] for n in args ]
 
     def get( self, *args ):
         "Convenience alias for getNodeByName"
@@ -343,8 +373,12 @@ class Mininet( object ):
 
     # Even more convenient syntax for node lookup and iteration
     def __getitem__( self, key ):
-        """net [ name ] operator: Return node(s) with given name(s)"""
+        "net[ name ] operator: Return node with given name"
         return self.nameToNode[ key ]
+
+    def __delitem__( self, key ):
+        "del net[ name ] operator - delete node with given name"
+        self.delNode( self.nameToNode[ key ] )
 
     def __iter__( self ):
         "return iterator over node names"
@@ -389,8 +423,8 @@ class Mininet( object ):
             params: additional link params (optional)
             returns: link object"""
         # Accept node objects or names
-        node1 = node1 if not isinstance( node1, basestring ) else self[ node1 ]
-        node2 = node2 if not isinstance( node2, basestring ) else self[ node2 ]
+        node1 = node1 if not isinstance( node1, BaseString ) else self[ node1 ]
+        node2 = node2 if not isinstance( node2, BaseString ) else self[ node2 ]
         options = dict( params )
         # Port is optional
         if port1 is not None:
@@ -438,8 +472,8 @@ class Mininet( object ):
         or the nodes the link connects.
         """
         if link is None:
-            if (isinstance( node1, basestring )
-                    and isinstance( node2, basestring )):
+            if (isinstance( node1, BaseString )
+                    and isinstance( node2, BaseString )):
                 try:
                     node1 = self.get(node1)
                 except:
@@ -462,6 +496,30 @@ class Mininet( object ):
         # tear down the link
         link.delete()
         self.links.remove(link)
+
+    def delLink( self, link ):
+        "Remove a link from this network"
+        link.delete()
+        self.links.remove( link )
+
+    def linksBetween( self, node1, node2 ):
+        "Return Links between node1 and node2"
+        return [ link for link in self.links
+                 if ( node1, node2 ) in (
+                    ( link.intf1.node, link.intf2.node ),
+                    ( link.intf2.node, link.intf1.node ) ) ]
+
+    def delLinkBetween( self, node1, node2, index=0, allLinks=False ):
+        """Delete link(s) between node1 and node2
+           index: index of link to delete if multiple links (0)
+           allLinks: ignore index and delete all such links (False)
+           returns: deleted link(s)"""
+        links = self.linksBetween( node1, node2 )
+        if not allLinks:
+            links = [ links[ index ] ]
+        for link in links:
+            self.delLink( link )
+        return links
 
     def configHosts( self ):
         "Configure a set of hosts."
@@ -587,7 +645,8 @@ class Mininet( object ):
             switch.start( self.controllers )
         started = {}
         for swclass, switches in groupby(
-                sorted( self.switches, key=type ), type ):
+                sorted( self.switches,
+                        key=lambda s: str( type( s ) ) ), type ):
             switches = tuple( switches )
             if hasattr( swclass, 'batchStartup' ):
                 success = swclass.batchStartup( switches )
@@ -614,7 +673,8 @@ class Mininet( object ):
         info( '*** Stopping %i switches\n' % len( self.switches ) )
         stopped = {}
         for swclass, switches in groupby(
-                sorted( self.switches, key=type ), type ):
+                sorted( self.switches,
+                        key=lambda s: str( type( s ) ) ), type ):
             switches = tuple( switches )
             if hasattr( swclass, 'batchShutdown' ):
                 success = swclass.batchShutdown( switches )
@@ -752,7 +812,7 @@ class Mininet( object ):
         m = re.search( r, pingOutput )
         if m is not None:
             return errorTuple
-        r = r'(\d+) packets transmitted, (\d+) received'
+        r = r'(\d+) packets transmitted, (\d+)( packets)? received'
         m = re.search( r, pingOutput )
         if m is None:
             error( '*** Error: could not parse ping output: %s\n' %
@@ -808,7 +868,6 @@ class Mininet( object ):
                         sent, received, rttmin, rttavg, rttmax, rttdev = outputs
                         all_outputs.append( (node, dest, outputs) )
                         output( ( '%s ' % dest.name ) if received else 'X ' )
-                output( '\n' )
         output( "*** Results: \n" )
         for outputs in all_outputs:
             src, dest, ping_outputs = outputs
@@ -894,7 +953,7 @@ class Mininet( object ):
         debug( 'Client output: %s\n' % cliout )
         servout = ''
         # We want the last *b/sec from the iperf server output
-        # for TCP, there are two fo them because of waitListening
+        # for TCP, there are two of them because of waitListening
         count = 2 if l4Type == 'TCP' else 1
         while len( re.findall( '/sec', servout ) ) < count:
             servout += server.monitor( timeoutms=5000 )
@@ -965,9 +1024,9 @@ class Mininet( object ):
         elif dst not in self.nameToNode:
             error( 'dst not in network: %s\n' % dst )
         else:
-            if isinstance( src, basestring ):
+            if isinstance( src, BaseString ):
                 src = self.nameToNode[ src ]
-            if isinstance( dst, basestring ):
+            if isinstance( dst, BaseString ):
                 dst = self.nameToNode[ dst ]
             connections = src.connectionsTo( dst )
             if len( connections ) == 0:
@@ -1006,10 +1065,13 @@ class Containernet( Mininet ):
     This class is not more than API beautification.
     """
 
-    def __init__(self, **params):
-        # call original Mininet.__init__
-        Mininet.__init__(self, **params)
+    def __init__(self, topo=None, dimage=None, **params):
+        # call original Mininet.__init__ with build=False
+        # still provide any topo objects and init node lists
+        Mininet.__init__(self, build=False, **params)
         self.SAPswitches = dict()
+        if topo and dimage:
+            self.buildFromTopo(topo, dimage)
 
     def addDocker( self, name, cls=Docker, **params ):
         """
@@ -1069,6 +1131,50 @@ class Containernet( Mininet ):
         elif ebpfProgram2 is not None:
             error("Failed to load the eBPF program on the second node\n")
         return link
+    def buildFromTopo( self, topo=None, dimage=None ):
+        """
+        Build Containernet from a topology object. Overrides
+        buildFromTopo from Mininet class, since we need to invoke
+        addDocker here instead of addHost.
+        At the en of this function, everything should be connected
+        and up.
+        """
+
+        info( '*** Creating network\n' )
+
+        if not self.controllers and self.controller:
+            # Add a default controller
+            info( '*** Adding controller\n' )
+            classes = self.controller
+            if not isinstance( classes, list ):
+                classes = [ classes ]
+            for i, cls in enumerate( classes ):
+                # Allow Controller objects because nobody understands partial()
+                if isinstance( cls, Controller ):
+                    self.addController( cls )
+                else:
+                    self.addController( 'c%d' % i, cls )
+
+        info( '*** Adding Docker containers:\n' )
+        for hostName in topo.hosts():
+            self.addDocker( hostName, dimage=dimage, **topo.nodeInfo( hostName ) )
+            info( hostName + ' ' )
+
+        info( '\n*** Adding switches:\n' )
+        for switchName in topo.switches():
+            # A bit ugly: add batch parameter if appropriate
+            params = topo.nodeInfo( switchName )
+            cls = params.get( 'cls', self.switch )
+            self.addSwitch( switchName, **params )
+            info( switchName + ' ' )
+
+        info( '\n*** Adding links:\n' )
+        for srcName, dstName, params in topo.links(
+                sort=True, withInfo=True ):
+            self.addLink( **params )
+            info( '(%s, %s) ' % ( srcName, dstName ) )
+
+        info( '\n' )
 
     def removeExtSAP(self, sapName):
         SAPswitch = self.SAPswitches[sapName]

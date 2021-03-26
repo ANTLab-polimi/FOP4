@@ -10,6 +10,11 @@ It may also get rid of 'false positives', but hopefully
 nothing irreplaceable!
 """
 
+from __future__ import unicode_literals
+try:
+	from builtins import str
+except ImportError:
+	pass
 from subprocess import ( Popen, PIPE, check_output as co,
                          CalledProcessError )
 from subprocess import call
@@ -21,13 +26,15 @@ import shlex
 
 from mininet.log import info
 from mininet.term import cleanUpScreens
+from mininet.util import decode
 from mininet.net import SAP_PREFIX
 from mininet.bmv2 import SIMPLE_SWITCH_GRPC
 
 def sh( cmd ):
     "Print a command and send it to the shell"
     info( cmd + '\n' )
-    return Popen( [ '/bin/sh', '-c', cmd ], stdout=PIPE ).communicate()[ 0 ]
+    result = Popen( [ '/bin/sh', '-c', cmd ], stdout=PIPE ).communicate()[ 0 ]
+    return decode( result )
 
 def killprocs( pattern ):
     "Reliably terminate processes matching a pattern (including args)"
@@ -56,8 +63,9 @@ class Cleanup( object ):
 
         info( "*** Removing excess controllers/ofprotocols/ofdatapaths/"
               "pings/noxes\n" )
-        zombies = 'controller ofprotocol ofdatapath ping nox_core lt-nox_core '
-        zombies += 'ovs-openflowd ovs-controller udpbwtest mnexec ivs'
+        zombies = ( 'controller ofprotocol ofdatapath ping nox_core'
+                    'lt-nox_core ovs-openflowd ovs-controller'
+                    'ovs-testcontroller udpbwtest mnexec ivs ryu-manager' )
         # Note: real zombie processes can't actually be killed, since they
         # are already (un)dead. Then again,
         # you can't connect to them either, so they're mostly harmless.
@@ -103,7 +111,7 @@ class Cleanup( object ):
                     ).splitlines()
         # Delete blocks of links
         n = 1000  # chunk size
-        for i in xrange( 0, len( links ), n ):
+        for i in range( 0, len( links ), n ):
             cmd = ';'.join( 'ip link del %s' % link
                              for link in links[ i : i + n ] )
             sh( '( %s ) 2> /dev/null' % cmd )
@@ -138,7 +146,7 @@ class Cleanup( object ):
 
         for rule in chain.rules:
             if SAP_PREFIX in str(rule.out_interface):
-                src_CIDR = str(ipaddress.IPv4Network(unicode(rule.src)))
+                src_CIDR = str(ipaddress.IPv4Network(u'{}'.format(str(rule.src))))
                 rule0_ = "iptables -t nat -D POSTROUTING ! -o {0} -s {1} -j MASQUERADE".\
                     format(rule.out_interface.strip('!'), src_CIDR)
                 p = Popen(shlex.split(rule0_))
@@ -149,7 +157,7 @@ class Cleanup( object ):
         table = iptc.Table(iptc.Table.FILTER)
         chain = iptc.Chain(table, 'FORWARD')
         for rule in chain.rules:
-            src_CIDR = str(ipaddress.IPv4Network(unicode(rule.src)))
+            src_CIDR = str(ipaddress.IPv4Network(u'{}'.format(str(rule.src))))
             if SAP_PREFIX in str(rule.out_interface):
                 rule1_ = "iptables -D FORWARD -o {0} -j ACCEPT".format(rule.out_interface)
                 p = Popen(shlex.split(rule1_))

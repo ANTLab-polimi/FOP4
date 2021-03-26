@@ -14,3 +14,4 @@ docker build -t containernet_example:ubuntup4 -f Dockerfile.ubuntu_p4 .
 
 docker build -t containernet_example:nDPI -f Dockerfile.nDPI .
 docker build -t containernet_example:P4BMv2 -f Dockerfile.p4bmv2 .
+docker build -t containernet_example:alpine3 -f Dockerfile.alpine3 .

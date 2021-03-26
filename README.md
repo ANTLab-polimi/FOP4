@@ -2,7 +2,9 @@
 
 This fork of Mininet and Containernet allows to use Docker containers and P4-enabled devices like P4-switches and SmartNIC. This allows to build and experiment function offloading prototypes.
 
-Based on: **Mininet 2.2.1**
+Containernet is a fork of the famous [Mininet](http://mininet.org) network emulator and allows to use [Docker](https://www.docker.com) containers as hosts in emulated network topologies. This enables interesting functionalities to build networking/cloud emulators and testbeds. One example for this is the [NFV multi-PoP infrastructure emulator](https://github.com/sonata-nfv/son-emu) which was created by the [SONATA-NFV](http://sonata-nfv.eu) project and is now part of the [OpenSource MANO (OSM)](https://osm.etsi.org) project. Besides this, Containernet is actively used by the research community, focussing on experiments in the field of cloud computing, fog computing, network function virtualization (NFV), and multi-access edge computing (MEC).
+
+Based on: **Mininet 2.3.0d5**
 
 * Containernet website: https://containernet.github.io/
 * Mininet website:  http://mininet.org
@@ -30,45 +32,39 @@ If you use FOP4 for your research and/or other publications, please cite (beside
    * CPU limitation with Docker CFS period/quota options
    * Memory/swap limitation
    * Change CPU/mem limitations at runtime!
+* Expose container ports and set environment variables of containers through Python API
 * Traffic control links (delay, bw, loss, jitter)
-   * (missing: TCLink support for dynamically added containers/hosts)
-* Automated unit tests for all new features
 * Automated installation based on Ansible playbook
 
 ---
 ## Installation
 
-FOP4 comes with three installation and deployment options.
-
-### Option 1: Bare-metal installation
-
 Automatic installation is provided through an Ansible playbook.
-* Requires: **Ubuntu Linux 18.04 LTS** and **P4 tools installed** see P4_example folder
-    ```bash
-    $ sudo apt-get install ansible git aptitude
-    $ git clone https://github.com/ANTLab-polimi/FOP4.git
-    $ cd FOP4/ansible
-    $ sudo ansible-playbook -i "localhost," -c local install.yml
-    $ cd ..
-    $ sudo python setup.py install
-    ```
-    Wait (and have a coffee) ...
 
-### Option 2: Nested Docker deployment
+* Requires: **Ubuntu Linux 18.04 LTS** and **Python3** and **P4 tools installed** (see P4_example folder)
+* Experimental: **Ubuntu Linux 20.04 LTS** and **Python3** and **P4 tools installed** (see P4_example folder)
 
-Coming soon.
+```bash
+$ sudo apt-get install ansible git aptitude
+$ git clone https://github.com/ANTLab-polimi/FOP4.git
+$ cd FOP4/ansible
+$ sudo ansible-playbook -i "localhost," -c local install.yml
+$ cd ..
+$ sudo python setup.py install
+```
+Wait (and have a coffee) ...
 
-### Option 3: Vagrant-based VM creation
+---
+## Examples
 
-Coming soon.
-
-### Usage / Run
+### Usage example (using bare-metal installation)
 
 Start example topology with some empty Docker containers connected to the network.
 
 * `cd FOP4`
 * run: `sudo python examples/containernet_example.py`
 * use: `containernet> d1 ifconfig` to see config of container `d1`
+* use: `containernet> d1 ping -c4 d2` to ping between containers
 
 ### Topology example
 
@@ -105,9 +101,14 @@ net.addLink(enf1, s2,
 
 ### Tests
 
-There is a set of Containernet specific unit tests located in `mininet/test/test_containernet.py`. To run these, do:
+```sh
+sudo make test
+```
 
-* `sudo py.test -v mininet/test/test_containernet.py`
+---
+## Documentation
+
+Containernet's [documentation](https://github.com/containernet/containernet/wiki) can be found in the [GitHub wiki](https://github.com/containernet/containernet/wiki). The documentation for the underlying Mininet project can be found [here](http://mininet.org/).
 
 ---
 ## Contact
@@ -127,6 +128,7 @@ Daniele Moro
 * Github: [@daniele-moro](https://github.com/daniele-moro)
 
 Manuel Peuster
-* Mail: <manuel (dot) peuster (at) upb (dot) de>
+* Mail: <manuel (at) peuster (dot) de>
+* Twitter: [@ManuelPeuster](https://twitter.com/ManuelPeuster)
 * GitHub: [@mpeuster](https://github.com/mpeuster)
-* Website: [Paderborn University](https://cs.uni-paderborn.de/cn/person/?tx_upbperson_personsite%5BpersonId%5D=13271&tx_upbperson_personsite%5Bcontroller%5D=Person&cHash=bafec92c0ada0bdfe8af6e2ed99efb4e)
+* Website: [https://peuster.de](https://peuster.de)

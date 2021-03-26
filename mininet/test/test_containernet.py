@@ -13,6 +13,52 @@ from mininet.util import quietRun
 from mininet.clean import cleanup
 
 
+def find_test_container(filename):
+    """
+    Returns absolute path to given file in misc/ folder.
+    """
+    abs_path = os.path.dirname(__file__).replace(
+        "mininet/test", "")
+    return os.path.join(abs_path,
+                        "examples/example-containers/{}".format(filename))
+
+
+class testImageBuilding( unittest.TestCase ):
+
+    def testaddDocker(self):
+        net = Containernet(controller=Controller)
+        path = find_test_container("webserver_curl")
+        d2 = net.addDocker("d2", ip='10.0.0.252',
+                           build_params={"dockerfile": "Dockerfile.server",
+                                         "path": path})
+        self.assertTrue(d2._check_image_exists(_id=d2.dimage))
+        d3 = net.addDocker("d3", ip='10.0.0.253',
+                           dimage="webserver_curl_test",
+                           build_params={"dockerfile": "Dockerfile.server",
+                                         "path": path})
+        self.assertTrue(d3._check_image_exists("webserver_curl_test"))
+        d4 = net.addDocker("d4", ip='10.0.0.254',
+                           build_params={"dockerfile": "Dockerfile.server",
+                                         "tag": "webserver_curl_test2",
+                                         "path": path})
+        self.assertTrue(d4._check_image_exists("webserver_curl_test2"))
+
+    @staticmethod
+    def tearDown():
+        cleanup()
+        # make sure that all pending docker containers are killed
+        with open(os.devnull, 'w') as devnull:
+            subprocess.call(
+                "docker rm -f $(docker ps --filter 'label=com.containernet' -a -q)",
+                stdout=devnull,
+                stderr=devnull,
+                shell=True)
+
+    @staticmethod
+    def setUp():
+        pass
+
+
 class simpleTestTopology( unittest.TestCase ):
     """
         Helper class to do basic test setups.
@@ -600,6 +646,39 @@ class testContainernetVolumeAPI( simpleTestTopology ):
         self.assertTrue("etc" in d0.cmd("ls /mnt/vol1"))
         self.assertTrue("etc" in d1.cmd("ls /mnt/vol1"))
         self.assertTrue("etc" in d1.cmd("ls /mnt/vol2"))
+        # stop Mininet network
+        self.stopNet()
+
+
+@unittest.skip("disabled container storage_opt tests since this is not supported by travis.ci")
+class testContainernetContainerStorageOptAPI( simpleTestTopology ):
+    """
+    Test to check the storage option/limitation API of the Docker integration.
+    """
+
+    def testStorageOpt( self ):
+        """
+        d1, d2 with storage size limit
+        """
+        # create network
+        self.createNet(nswitches=1, nhosts=0, ndockers=0)
+        # add dockers
+        d0 = self.net.addDocker(
+            'd0', ip='10.0.0.1', dimage="ubuntu:trusty",
+            storage_opt={'size': '42m'})
+        d1 = self.net.addDocker(
+            'd1', ip='10.0.0.2', dimage="ubuntu:trusty",
+            storage_opt={'size': '1G'})
+        # setup links (we always need one connection to suppress warnings)
+        self.net.addLink(d0, self.s[0])
+        self.net.addLink(d1, self.s[0])
+        # start Mininet network
+        self.startNet()
+        # check number of running docker containers
+        self.assertTrue(len(self.net.hosts) == 2)
+        # check size of default docker storage partition (overlay)
+        self.assertEqual(d0.cmd("df -h | grep overlay").split()[1], "42M")
+        self.assertEqual(d1.cmd("df -h | grep overlay").split()[1], "1.0G")
         # stop Mininet network
         self.stopNet()
 
