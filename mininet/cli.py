@@ -147,7 +147,7 @@ class CLI( Cmd ):
     def do_help( self, line ):
         "Describe available CLI commands."
         Cmd.do_help( self, line )
-        if line is '':
+        if line == '':
             output( self.helpStr )
 
     def do_nodes( self, _line ):
@@ -447,7 +447,7 @@ class CLI( Cmd ):
                 # XXX BL: this doesn't quite do what we want.
                 if False and self.inputFile:
                     key = self.inputFile.read( 1 )
-                    if key is not '':
+                    if key != '':
                         node.write( key )
                     else:
                         self.inputFile = None

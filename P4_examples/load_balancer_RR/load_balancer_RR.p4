@@ -199,7 +199,7 @@ control LoadBalancer(inout headers_t hdr,
     }
 
     action _drop() {
-        mark_to_drop();
+        mark_to_drop(standard_metadata);
     }
 
     action set_nhop(bit<48> nhop_dmac, bit<32> nhop_ipv4, port_t port){
@@ -314,7 +314,7 @@ control c_ingress(inout headers_t hdr,
     }
 
     action _drop() {
-        mark_to_drop();
+        mark_to_drop(standard_metadata);
     }
 
     // Table counter used to count packets and bytes matched by each entry of

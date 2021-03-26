@@ -35,14 +35,29 @@ See [here](https://github.com/jafingerhut/p4-guide/blob/master/bin/README-instal
 
 ## Instructions
 
+### Prerequisites
+
+To be able to run the following examples, the needed Docker containers have to be already built.
+To build them, run `FOP4/examples/example-containers/build.sh`
+
+### Running
+
 First you need to compile the P4 pipeline using the `make` command on the folders `load_balancer_hash` and `load_balancer_RR`.
 
 Then you can run the script `load_balancer_hash_p4.py` or the script `load_balancer_RR_p4.py` to run the previously described topology.
 
 Finally, you need to populate the tables of the switch using the command `simple_switch_CLI --thrift-port $(cat /tmp/bmv2-s1-thrift-port) < command.txt`.
 
+```bash
+containernet> sh simple_switch_CLI --thrift-port $(cat /tmp/bmv2-s1-thrift-port) < command.txt
+```
+
 If you try to contact the LAMP webserver at the address 192.168.1.100 you will be served alternatively from the host with IP 192.168.1.200 or the host with IP 192.168.1.201.
 To check it you can try to open the page `index.php` and you can check the address of the server that served the page (search for **SERVER_ADDR** field).
+
+```bash
+containernet> h1 curl -s 192.168.1.100/index.php | grep SERVER_ADDR
+```
 
 ## Miniedit.py
 

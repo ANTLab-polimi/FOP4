@@ -38,19 +38,51 @@ If you use FOP4 for your research and/or other publications, please cite (beside
 
 ---
 ## Installation
+For a smooth installation process, it is suggested to install FOP4 and P4 tools in the root of your home directory. The following instructions will guide you in the process: 
+```bash
+$ cd
+$ git clone https://github.com/ANTLab-polimi/FOP4.git
+$ cd FOP4
+```
 
-Automatic installation is provided through an Ansible playbook.
+### P4 tools (Dependencies)
+P4 tools are necessary to run the P4 examples included with FOP4 and to be able to use all of its features. It's highly reccomended to use the included script to automate the installation of a compatible version:
 
-* Requires: **Ubuntu Linux 18.04 LTS** and **Python3** and **P4 tools installed** (see P4_example folder)
-* Experimental: **Ubuntu Linux 20.04 LTS** and **Python3** and **P4 tools installed** (see P4_example folder)
+* Requires a clean instance of **Ubuntu Linux 20.04 LTS** with the following minimum specs:
+    * At least 2GB of RAM
+    * At least 12GB of **FREE** disk space 
+```bash
+$ cd util
+$ ./install-p4-dependencies.sh
+$ cd ..
+```
+**WARNING:** It may take over an hour for this installation to complete
+
+The script will add the tools folders to PATH through your bash profile file.
+To load them without rebooting, run `source ~/.profile`
+
+### XDP backend for P4C
+If you also intend to use [p4c-xdp](https://github.com/vmware/p4c-xdp) (an XDP backend for P4C) it can be installed using the included script.
+```bash
+$ cd util
+$ ./install-p4c-xdp.sh
+$ cd ..
+```
+
+The script will add necessary environment variables to your bash profile file.
+To load them without rebooting, run `source ~/.profile`
+
+### FOP4
+
+* Requires **Ubuntu Linux 20.04 LTS**, **Python3** and **P4 tools**.
+* If P4 tools have been installed with the provided script, the machine is already configured to install FOP4 without additional requirements.
 
 ```bash
-$ sudo apt-get install ansible git aptitude
-$ git clone https://github.com/ANTLab-polimi/FOP4.git
-$ cd FOP4/ansible
+$ cd ansible
+$ sudo apt-get install -y ansible aptitude
 $ sudo ansible-playbook -i "localhost," -c local install.yml
 $ cd ..
-$ sudo python setup.py install
+$ sudo python3 setup.py install
 ```
 Wait (and have a coffee) ...
 
@@ -62,7 +94,7 @@ Wait (and have a coffee) ...
 Start example topology with some empty Docker containers connected to the network.
 
 * `cd FOP4`
-* run: `sudo python examples/containernet_example.py`
+* run: `sudo python3 examples/containernet_example.py`
 * use: `containernet> d1 ifconfig` to see config of container `d1`
 * use: `containernet> d1 ping -c4 d2` to ping between containers
 

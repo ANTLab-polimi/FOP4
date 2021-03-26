@@ -24,7 +24,7 @@ import random
 import re
 import socket
 import threading
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 from contextlib import closing
 
 import time
@@ -77,7 +77,7 @@ def watchDog(sw):
             else:
                 warn("\n*** WARN: BMv2 instance %s died!\n" % sw.name)
                 sw.printBmv2Log()
-                print ("-" * 80) + "\n"
+                print(("-" * 80) + "\n")
                 return
 
 
@@ -239,23 +239,23 @@ class ONOSBmv2Switch(Switch):
         # Build netcfg URL
         url = 'http://%s:8181/onos/v1/network/configuration/' % controllerIP
         # Instantiate password manager for HTTP auth
-        pm = urllib2.HTTPPasswordMgrWithDefaultRealm()
+        pm = urllib.request.HTTPPasswordMgrWithDefaultRealm()
         pm.add_password(None, url,
                         # os.environ['ONOS_WEB_USER'],
                         # os.environ['ONOS_WEB_PASS']
                         ONOS_WEB_USER,
                         ONOS_WEB_PASS)
 
-        urllib2.install_opener(urllib2.build_opener(
-            urllib2.HTTPBasicAuthHandler(pm)))
+        urllib.request.install_opener(urllib.request.build_opener(
+            urllib.request.HTTPBasicAuthHandler(pm)))
         # Push config data to controller
-        req = urllib2.Request(url, json.dumps(cfgData),
+        req = urllib.request.Request(url, json.dumps(cfgData).encode("utf-8"),
                               {'Content-Type': 'application/json'})
         try:
-            f = urllib2.urlopen(req)
+            f = urllib.request.urlopen(req)
             print(f.read())
             f.close()
-        except urllib2.URLError as e:
+        except urllib.error.URLError as e:
             warn("*** WARN: unable to push config to ONOS (%s)\n" % e.reason)
 
     def start(self, controllers):
@@ -310,7 +310,7 @@ class ONOSBmv2Switch(Switch):
     def bmv2Thrift(self, *args, **kwargs):
         "Run ovs-vsctl command (or queue for later execution)"
         cli_command = SIMPLE_SWITCH_CLI + " --thrift-port " + str(self.thriftPort) + " <<< "
-        switch_cmd = ' '.join(map(str, filter(lambda ar: ar is not None, args)))
+        switch_cmd = ' '.join(map(str, [ar for ar in args if ar is not None]))
         command = cli_command + '"' + switch_cmd + '"'
         self.cmd(command)
 
@@ -319,9 +319,9 @@ class ONOSBmv2Switch(Switch):
         # TODO: find a better way to add a port at runtime
         if self.pktdump:
             pcapFiles = ["./" + str(intf) + "_out.pcap", "./" + str(intf) + "_in.pcap"]
-            self.bmv2Thrift('port_add', intf, next(key for key, value in self.intfs.items() if value == intf), *pcapFiles)
+            self.bmv2Thrift('port_add', intf, next(key for key, value in list(self.intfs.items()) if value == intf), *pcapFiles)
         else:
-            self.bmv2Thrift('port_add', intf, next(key for key, value in self.intfs.items() if value == intf))
+            self.bmv2Thrift('port_add', intf, next(key for key, value in list(self.intfs.items()) if value == intf))
         self.cmd('ifconfig', intf, 'up')
         # TODO: check if need to send a new netcfg
         # if self.controllers is not None and len(controllers) > 0 :
@@ -335,7 +335,7 @@ class ONOSBmv2Switch(Switch):
         if self.thriftPort is None:
             self.thriftPort = pickUnusedPort()
         args = ['--device-id %s' % self.p4DeviceId]
-        for port, intf in self.intfs.items():
+        for port, intf in list(self.intfs.items()):
             if not intf.IP():
                 args.append('-i %d@%s' % (port, intf.name))
         args.append('--thrift-port %s' % self.thriftPort)
