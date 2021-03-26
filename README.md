@@ -61,6 +61,17 @@ $ cd ..
 The script will add the tools folders to PATH through your bash profile file.
 To load them without rebooting, run `source ~/.profile`
 
+### XDP backend for P4C
+If you also intend to use [p4c-xdp](https://github.com/vmware/p4c-xdp) (an XDP backend for P4C) it can be installed using the included script.
+```bash
+$ cd util
+$ ./install-p4c-xdp.sh
+$ cd ..
+```
+
+The script will add necessary environment variables to your bash profile file.
+To load them without rebooting, run `source ~/.profile`
+
 ### FOP4
 
 * Requires **Ubuntu Linux 20.04 LTS**, **Python3** and **P4 tools**.

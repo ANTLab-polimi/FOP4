@@ -253,7 +253,7 @@ class ONOSBmv2Switch(Switch):
                               {'Content-Type': 'application/json'})
         try:
             f = urllib.request.urlopen(req)
-            print((f.read()))
+            print(f.read())
             f.close()
         except urllib.error.URLError as e:
             warn("*** WARN: unable to push config to ONOS (%s)\n" % e.reason)
@@ -382,14 +382,14 @@ class ONOSBmv2Switch(Switch):
 
     def printBmv2Log(self):
         if os.path.isfile(self.logfile):
-            print(("-" * 80))
-            print(("%s log (from %s):" % (self.name, self.logfile)))
+            print("-" * 80)
+            print("%s log (from %s):" % (self.name, self.logfile))
             with open(self.logfile, 'r') as f:
                 lines = f.readlines()
                 if len(lines) > BMV2_LOG_LINES:
                     print("...")
                 for line in lines[-BMV2_LOG_LINES:]:
-                    print((line.rstrip()))
+                    print(line.rstrip())
 
     @staticmethod
     def controllerIp(controllers):
